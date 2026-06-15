@@ -65,6 +65,31 @@ test('signup → auth flow issues a working token', async () => {
   } finally { server.close(); }
 });
 
+test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
+  const server = await listen();
+  try {
+    const a = await api(server, '/api/auth/demo', { method: 'POST' });
+    assert.equal(a.status, 201);
+    assert.ok(a.body.token);
+    assert.equal(a.body.demo, true);
+
+    const auth = { Authorization: `Bearer ${a.body.token}` };
+    const dash = await api(server, '/api/dashboard', { headers: auth });
+    assert.equal(dash.status, 200);
+    assert.ok(dash.body.members.length >= 4, 'demo has a family');
+    assert.ok(dash.body.choresDue.length > 0, 'demo has chores');
+
+    const fin = await api(server, '/api/finance/summary', { headers: auth });
+    assert.ok(fin.body.trend.length >= 2, 'demo has multi-month financial history');
+
+    // A second demo call must be a separate household (no shared data).
+    const b = await api(server, '/api/auth/demo', { method: 'POST' });
+    const meA = await api(server, '/api/auth/me', { headers: auth });
+    const meB = await api(server, '/api/auth/me', { headers: { Authorization: `Bearer ${b.body.token}` } });
+    assert.notEqual(meA.body.household_id, meB.body.household_id);
+  } finally { server.close(); }
+});
+
 test('demo household is seeded and tenant-isolated', async () => {
   const server = await listen();
   try {

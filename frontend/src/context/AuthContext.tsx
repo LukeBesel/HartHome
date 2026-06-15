@@ -7,6 +7,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (householdName: string, displayName: string, email: string, password: string) => Promise<void>;
+  startDemo: () => Promise<void>;
   switchProfile: (memberId: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -51,11 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (householdName: string, displayName: string, email: string, password: string) =>
     finishAuth(await api.signup({ householdName, displayName, email, password }));
   const switchProfile = async (memberId: string) => finishAuth(await api.switchProfile(memberId));
+  const startDemo = async () => {
+    await finishAuth(await api.demo());
+    // Flag a fresh tour so the guided walkthrough kicks off on the dashboard.
+    localStorage.setItem('hh_tour', 'pending');
+    localStorage.setItem('hh_is_demo', 'true');
+  };
   const refresh = async () => { const u = await api.me().catch(() => null); if (u) persist(u); };
 
   const logout = async () => {
     await api.logout().catch(() => {});
     localStorage.removeItem('hh_token');
+    localStorage.removeItem('hh_is_demo');
+    localStorage.removeItem('hh_tour');
     persist(null);
   };
 
@@ -63,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isParent = !!user && (user.role === 'owner' || user.role === 'parent');
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, switchProfile, logout, refresh, isAtLeast, isParent }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, startDemo, switchProfile, logout, refresh, isAtLeast, isParent }}>
       {children}
     </AuthContext.Provider>
   );

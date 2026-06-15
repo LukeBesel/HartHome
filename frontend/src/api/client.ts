@@ -51,6 +51,7 @@ export const api = {
   signup: (b: { householdName: string; displayName: string; email: string; password: string }) =>
     post<{ token: string; user: User }>('/auth/signup', b),
   login: (email: string, password: string) => post<{ token: string; user: User }>('/auth/login', { email, password }),
+  demo: () => post<{ token: string; user: User; demo: boolean }>('/auth/demo'),
   logout: () => post('/auth/logout'),
   me: () => get<User>('/auth/me'),
   switchProfile: (member_id: string) => post<{ token: string; user: User }>('/auth/switch-profile', { member_id }),

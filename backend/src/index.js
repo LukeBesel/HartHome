@@ -86,6 +86,7 @@ app.use(express.json({ limit: '5mb' }));
 
 app.use('/api/auth/login',  authLimiter);
 app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/demo',   authLimiter);
 app.use('/api', generalLimiter);
 
 app.use('/api/auth', authRouter);            // public
