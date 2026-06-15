@@ -7,10 +7,13 @@ const GRADIENT = 'linear-gradient(135deg, #6366f1, #ec4899)';
 
 export default function Login() {
   const [params] = useSearchParams();
-  const { user, login, signup, startDemo } = useAuth();
+  const { user, login, signup, join, startDemo } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'signup'>(params.get('mode') === 'signup' ? 'signup' : 'login');
-  const [form, setForm] = useState({ householdName: '', displayName: '', email: '', password: '' });
+  const initialMode = params.get('mode');
+  const [mode, setMode] = useState<'login' | 'signup' | 'join'>(
+    initialMode === 'signup' ? 'signup' : initialMode === 'join' ? 'join' : 'login'
+  );
+  const [form, setForm] = useState({ householdName: '', displayName: '', email: '', password: '', inviteCode: params.get('code') || '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -23,6 +26,7 @@ export default function Login() {
     setBusy(true); setError('');
     try {
       if (mode === 'signup') await signup(form.householdName, form.displayName, form.email, form.password);
+      else if (mode === 'join') await join(form.inviteCode, form.displayName, form.email, form.password);
       else await login(form.email, form.password);
       navigate('/dashboard');
     } catch (err: any) {
@@ -62,11 +66,11 @@ export default function Login() {
             <span className="font-semibold text-xl tracking-tight">HartHome</span>
           </Link>
 
-          <div className="flex bg-white/5 rounded-xl p-1 mb-7 text-sm">
-            {(['login', 'signup'] as const).map(m => (
+          <div className="flex bg-white/5 rounded-xl p-1 mb-7 text-xs">
+            {([['login', 'Sign in'], ['signup', 'New home'], ['join', 'Join home']] as const).map(([m, label]) => (
               <button key={m} onClick={() => { setMode(m); setError(''); }}
                 className={`flex-1 py-2 rounded-lg font-medium transition-all ${mode === m ? 'bg-white text-gray-900' : 'text-gray-400 hover:text-white'}`}>
-                {m === 'login' ? 'Sign in' : 'Create household'}
+                {label}
               </button>
             ))}
           </div>
@@ -78,13 +82,19 @@ export default function Login() {
                 <input className="login-input" placeholder="Your name" value={form.displayName} onChange={set('displayName')} required />
               </>
             )}
+            {mode === 'join' && (
+              <>
+                <input className="login-input tracking-widest uppercase" placeholder="Invite code" value={form.inviteCode} onChange={set('inviteCode')} required />
+                <input className="login-input" placeholder="Your name" value={form.displayName} onChange={set('displayName')} required />
+              </>
+            )}
             <input className="login-input" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />
-            <input className="login-input" type="password" placeholder="Password" value={form.password} onChange={set('password')} required autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+            <input className="login-input" type="password" placeholder="Password" value={form.password} onChange={set('password')} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
 
             {error && <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{error}</p>}
 
             <button type="submit" disabled={busy} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-white px-4 py-3 rounded-xl transition-all hover:opacity-90 disabled:opacity-50 glow" style={{ background: GRADIENT }}>
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <>{mode === 'signup' ? 'Create household' : 'Sign in'} <ArrowRight size={16} /></>}
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <>{mode === 'signup' ? 'Create household' : mode === 'join' ? 'Join household' : 'Sign in'} <ArrowRight size={16} /></>}
             </button>
           </form>
 

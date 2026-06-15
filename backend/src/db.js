@@ -392,6 +392,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_household ON activity(household_id, created_at);
 `);
 
+// ─── Lightweight migrations (additive columns on existing installs) ───────────
+const userCols = db.prepare('PRAGMA table_info(users)').all().map(r => r.name);
+if (!userCols.includes('pin')) db.exec('ALTER TABLE users ADD COLUMN pin TEXT');
+
 module.exports = db;
 
 // Seed runs after export so the seed module can `require('./db')` cleanly.

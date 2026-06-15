@@ -89,4 +89,11 @@ router.put('/household/info', requireRole('parent'), (req, res) => {
   res.json(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId));
 });
 
+// Regenerate the household invite code (invalidates the old one).
+router.post('/household/regenerate-invite', requireRole('parent'), (req, res) => {
+  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  db.prepare('UPDATE households SET invite_code = ? WHERE id = ?').run(code, req.householdId);
+  res.json({ invite_code: code });
+});
+
 module.exports = router;

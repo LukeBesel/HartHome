@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Settings, ChevronLeft, ChevronRight, LogOut, ChevronDown,
-  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle,
+  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { SECTIONS, NavItem } from '../../config/navigation';
 import { Avatar } from './ui';
 import Tour, { startTour } from './Tour';
+import ProfileSwitch from './ProfileSwitch';
 
 function useIsDesktop() {
   const [d, setD] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -25,6 +26,7 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('hh_sidebar') === 'collapsed');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const { user, logout, isParent } = useAuth();
   const { dark, toggleDark } = useTheme();
   const navigate = useNavigate();
@@ -120,6 +122,7 @@ export default function Layout() {
                     <div className="text-xs font-semibold text-gray-800 truncate">{user?.display_name}</div>
                     <div className="text-[11px] text-gray-500 truncate">{user?.email || 'Profile account'}</div>
                   </div>
+                  <button onClick={() => { setUserMenuOpen(false); setSwitching(true); }} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full"><UsersIcon size={14} />Switch profile</button>
                   <NavLink to="/settings" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full"><Settings size={14} />Settings</NavLink>
                   <button onClick={handleLogout} className="flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 w-full"><LogOut size={14} />Sign out</button>
                 </div>
@@ -146,6 +149,7 @@ export default function Layout() {
         <main className="flex-1 overflow-auto"><Outlet /></main>
       </div>
       <Tour />
+      {switching && <ProfileSwitch onClose={() => setSwitching(false)} />}
     </div>
   );
 }

@@ -58,6 +58,39 @@ router.post('/signup', (req, res) => {
   res.status(201).json({ token, user: publicUser(user) });
 });
 
+// ─── Look up a household by invite code (public — powers the join screen) ─────
+router.get('/invite/:code', (req, res) => {
+  const hh = db.prepare('SELECT id, name FROM households WHERE invite_code = ?').get(String(req.params.code).toUpperCase().trim());
+  if (!hh) return res.status(404).json({ error: 'That invite code is not valid.' });
+  res.json({ household_name: hh.name });
+});
+
+// ─── Join an existing household with an invite code ───────────────────────────
+router.post('/join', (req, res) => {
+  const { inviteCode, displayName, email, password } = req.body;
+  if (!inviteCode || !displayName || !email || !password) {
+    return res.status(400).json({ error: 'Invite code, your name, email and password are all required.' });
+  }
+  if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+
+  const hh = db.prepare('SELECT * FROM households WHERE invite_code = ?').get(String(inviteCode).toUpperCase().trim());
+  if (!hh) return res.status(404).json({ error: 'That invite code is not valid.' });
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase())) {
+    return res.status(409).json({ error: 'An account with that email already exists.' });
+  }
+
+  const userId = uuid();
+  const count = db.prepare('SELECT COUNT(*) c FROM users WHERE household_id = ?').get(hh.id).c;
+  db.prepare(
+    `INSERT INTO users (id, household_id, email, password_hash, display_name, role, avatar_color)
+     VALUES (?, ?, ?, ?, ?, 'parent', ?)`
+  ).run(userId, hh.id, email.toLowerCase(), hashPassword(password), displayName, AVATAR_COLORS[count % AVATAR_COLORS.length]);
+
+  const token = createSession(userId);
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  res.status(201).json({ token, user: publicUser(user) });
+});
+
 // ─── Explore the demo home ────────────────────────────────────────────────────
 // Spins up a brand-new, fully-populated demo household for the visitor and logs
 // them straight in. Each visitor gets their own isolated, mutable copy — so the
@@ -97,12 +130,41 @@ router.post('/login', (req, res) => {
 // Children can switch profiles on a wall display by tapping their avatar; the
 // returned token is short-lived and scoped to the same household.
 router.post('/switch-profile', requireAuth, (req, res) => {
-  const { member_id } = req.body;
-  const member = db.prepare('SELECT * FROM users WHERE id = ? AND household_id = ?')
+  const { member_id, pin } = req.body;
+  const member = db.prepare('SELECT * FROM users WHERE id = ? AND household_id = ? AND is_active = 1')
     .get(member_id, req.householdId);
   if (!member) return res.status(404).json({ error: 'Member not found' });
+  // A profile with a PIN set requires it (keeps kids out of a parent's profile).
+  if (member.pin && String(pin || '') !== String(member.pin)) {
+    return res.status(403).json({ error: 'Incorrect PIN', code: 'BAD_PIN' });
+  }
   const token = createSession(member.id);
   res.json({ token, user: publicUser(member) });
+});
+
+// Which household profiles have a PIN — so the kiosk knows when to prompt.
+// (Returns no PIN values, just whether each member is protected.)
+router.get('/profiles', requireAuth, (req, res) => {
+  const rows = db.prepare(
+    'SELECT id, display_name, avatar_color, role, points FROM users WHERE household_id = ? AND is_active = 1 ORDER BY created_at'
+  ).all(req.householdId);
+  const protectedIds = new Set(db.prepare('SELECT id FROM users WHERE household_id = ? AND pin IS NOT NULL').all(req.householdId).map(r => r.id));
+  res.json(rows.map(r => ({ ...r, has_pin: protectedIds.has(r.id) })));
+});
+
+// Set or clear a profile PIN. Anyone can set their own; parents can set any.
+router.post('/set-pin', requireAuth, (req, res) => {
+  const { member_id, pin } = req.body;
+  const target = member_id || req.user.id;
+  const isSelf = target === req.user.id;
+  const isParent = req.user.role === 'owner' || req.user.role === 'parent';
+  if (!isSelf && !isParent) return res.status(403).json({ error: 'Only a parent can set another profile\'s PIN.' });
+  const member = db.prepare('SELECT * FROM users WHERE id = ? AND household_id = ?').get(target, req.householdId);
+  if (!member) return res.status(404).json({ error: 'Member not found' });
+  const clean = pin === null || pin === '' ? null : String(pin).replace(/\D/g, '').slice(0, 8);
+  if (clean !== null && clean.length < 4) return res.status(400).json({ error: 'PIN must be 4–8 digits.' });
+  db.prepare('UPDATE users SET pin = ? WHERE id = ?').run(clean, target);
+  res.json({ ok: true, has_pin: clean !== null });
 });
 
 // ─── Current user + household ─────────────────────────────────────────────────

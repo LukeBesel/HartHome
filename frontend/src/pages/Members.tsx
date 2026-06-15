@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Plus, Pencil, Trash2, Star, Crown, Cake, Mail } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Star, Crown, Cake, Mail, Lock, Unlock } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
 import {
@@ -33,11 +33,23 @@ const emptyMember = (): MemberForm => ({
 
 export default function Members() {
   const { data: members, loading, refresh } = useAsync(() => api.members(), []);
+  const { data: profiles, refresh: refreshProfiles } = useAsync(() => api.profiles(), []);
   const { isParent } = useAuth();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<MemberForm>(emptyMember());
   const [saving, setSaving] = useState(false);
+
+  // PIN management — protects a profile on the shared-screen switcher.
+  const [pinFor, setPinFor] = useState<User | null>(null);
+  const [pinValue, setPinValue] = useState('');
+  const hasPin = (id: string) => !!profiles?.find((p) => p.id === id)?.has_pin;
+  const savePin = async (clear = false) => {
+    if (!pinFor) return;
+    await api.setPin(pinFor.id, clear ? null : pinValue);
+    setPinFor(null); setPinValue('');
+    refreshProfiles();
+  };
 
   const memberList: User[] = members || [];
   const totalPoints = memberList.reduce((s, m) => s + (m.points || 0), 0);
@@ -113,6 +125,9 @@ export default function Members() {
               <div key={m.id} className="card p-5 flex flex-col items-center text-center gap-2 relative">
                 {isParent && (
                   <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <button className={`btn-ghost p-1.5 ${hasPin(m.id) ? 'text-indigo-500' : ''}`} aria-label="Set PIN" title={hasPin(m.id) ? 'PIN set — manage' : 'Set a profile PIN'} onClick={() => { setPinFor(m); setPinValue(''); }}>
+                      {hasPin(m.id) ? <Lock size={14} /> : <Unlock size={14} />}
+                    </button>
                     <button className="btn-ghost p-1.5" aria-label="Edit member" onClick={() => openEdit(m)}><Pencil size={14} /></button>
                     {!owner && (
                       <button className="btn-ghost p-1.5 text-red-500" aria-label="Remove member" onClick={() => remove(m)}><Trash2 size={14} /></button>
@@ -193,6 +208,26 @@ export default function Members() {
         </Field>
         <Field label="Birthday">
           <Input type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+        </Field>
+      </Modal>
+
+      {/* Profile PIN */}
+      <Modal
+        open={!!pinFor}
+        title={`${pinFor?.display_name ?? ''} — profile PIN`}
+        onClose={() => { setPinFor(null); setPinValue(''); }}
+        footer={
+          <>
+            {pinFor && hasPin(pinFor.id) && <button className="btn-ghost text-red-600 mr-auto" onClick={() => savePin(true)}>Remove PIN</button>}
+            <button className="btn-secondary" onClick={() => { setPinFor(null); setPinValue(''); }}>Cancel</button>
+            <button className="btn-primary" onClick={() => savePin(false)} disabled={pinValue.replace(/\D/g, '').length < 4}>Save PIN</button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-500">A PIN protects this profile on the shared-screen switcher, so only {pinFor?.display_name?.split(' ')[0]} can open it. 4–8 digits.</p>
+        <Field label="New PIN">
+          <Input inputMode="numeric" value={pinValue} placeholder="••••" maxLength={8}
+            onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 8))} />
         </Field>
       </Modal>
     </div>

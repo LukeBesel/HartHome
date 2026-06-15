@@ -75,6 +75,14 @@ export default function Settings() {
     } catch { /* ignore clipboard errors */ }
   };
 
+  const [regenning, setRegenning] = useState(false);
+  const regenInvite = async () => {
+    setRegenning(true);
+    try { await api.regenerateInvite(); await refreshHousehold(); }
+    catch { /* ignore */ }
+    finally { setRegenning(false); }
+  };
+
   const pickAccent = (id: string) => {
     setAccent(id);
     if (isParent) api.updateHousehold({ accent: id }).catch(() => { /* best-effort */ });
@@ -150,12 +158,15 @@ export default function Settings() {
         <Field label="Address">
           <Input value={hhForm.address} disabled={!isParent} onChange={(e) => setHhForm({ ...hhForm, address: e.target.value })} />
         </Field>
-        <Field label="Invite code" hint="Share this so family members can join.">
+        <Field label="Invite code" hint="Share this so a partner or family member can join your home from the “Join home” tab on the sign-in screen.">
           <div className="flex items-center gap-2">
-            <Input value={household?.invite_code || ''} readOnly className="font-mono" />
+            <Input value={household?.invite_code || ''} readOnly className="font-mono tracking-widest uppercase" />
             <button className="btn-secondary flex-shrink-0" onClick={copyInvite} aria-label="Copy invite code">
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </button>
+            {isParent && (
+              <button className="btn-ghost flex-shrink-0" onClick={regenInvite} disabled={regenning} title="Generate a new code (invalidates the old one)">New code</button>
+            )}
           </div>
         </Field>
         {isParent && (
