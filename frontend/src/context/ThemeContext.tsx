@@ -29,7 +29,17 @@ export const SIDEBARS = [
 export const DENSITIES = [{ id: 'comfortable', label: 'Comfortable' }, { id: 'compact', label: 'Compact' }] as const;
 export const FONT_SCALES = [{ id: 'sm', label: 'Small' }, { id: 'md', label: 'Default' }, { id: 'lg', label: 'Large' }] as const;
 export const RADII = [{ id: 'sharp', label: 'Sharp' }, { id: 'rounded', label: 'Rounded' }, { id: 'xl', label: 'Soft' }] as const;
-export const WALLPAPERS = [{ id: 'plain', label: 'Plain' }, { id: 'aurora', label: 'Aurora' }, { id: 'mesh', label: 'Mesh' }] as const;
+export const WALLPAPERS = [{ id: 'plain', label: 'Plain' }, { id: 'aurora', label: 'Aurora' }, { id: 'mesh', label: 'Mesh' }, { id: 'image', label: 'Custom' }] as const;
+
+// Curated one-tap looks (full ThemePrefs minus any custom image).
+export const PRESETS: { id: string; label: string; theme: Partial<ThemePrefs> }[] = [
+  { id: 'midnight', label: 'Midnight', theme: { accent: '#6366f1', secondary: '#ec4899', sidebar: 'midnight', mode: 'system', wallpaper: 'aurora', radius: 'xl' } },
+  { id: 'sunset', label: 'Sunset', theme: { accent: '#f59e0b', secondary: '#ec4899', sidebar: 'plum', mode: 'dark', wallpaper: 'aurora', radius: 'xl' } },
+  { id: 'forest', label: 'Forest', theme: { accent: '#10b981', secondary: '#14b8a6', sidebar: 'forest', mode: 'light', wallpaper: 'mesh', radius: 'rounded' } },
+  { id: 'ocean', label: 'Ocean', theme: { accent: '#06b6d4', secondary: '#3b82f6', sidebar: 'ink', mode: 'dark', wallpaper: 'mesh', radius: 'xl' } },
+  { id: 'berry', label: 'Berry', theme: { accent: '#ec4899', secondary: '#8b5cf6', sidebar: 'tinted', mode: 'light', wallpaper: 'aurora', radius: 'rounded' } },
+  { id: 'mono', label: 'Mono', theme: { accent: '#64748b', secondary: '#6366f1', sidebar: 'black', mode: 'dark', wallpaper: 'plain', radius: 'sharp' } },
+];
 
 export const DEFAULT_THEME: ThemePrefs = {
   mode: 'system', accent: '#6366f1', secondary: '#ec4899',
@@ -72,6 +82,8 @@ function applyTheme(t: ThemePrefs) {
   root.setAttribute('data-density', t.density);
   root.setAttribute('data-radius', t.radius);
   root.setAttribute('data-wallpaper', t.wallpaper);
+  // Custom wallpaper image is applied as a CSS variable used by index.css.
+  root.style.setProperty('--wallpaper-image', t.wallpaper === 'image' && t.wallpaperImage ? `url("${t.wallpaperImage}")` : 'none');
 
   // Global UI scale.
   root.style.fontSize = t.fontScale === 'sm' ? '14px' : t.fontScale === 'lg' ? '18px' : '16px';

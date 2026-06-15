@@ -191,3 +191,12 @@
     radial-gradient(560px 440px at 50% 104%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 55%);
   background-attachment: fixed;
 }
+/* Custom uploaded wallpaper — image var set by the theme engine, with a soft
+   surface scrim so cards stay readable on top. */
+[data-wallpaper="image"] main {
+  background-image: linear-gradient(rgba(248,250,252,0.82), rgba(248,250,252,0.82)), var(--wallpaper-image);
+  background-size: cover; background-position: center; background-attachment: fixed;
+}
+.dark [data-wallpaper="image"] main {
+  background-image: linear-gradient(rgba(15,23,42,0.82), rgba(15,23,42,0.82)), var(--wallpaper-image);
+}

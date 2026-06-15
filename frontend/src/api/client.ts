@@ -2,7 +2,7 @@ import type {
   User, Household, EventItem, Chore, Goal, Reward, Redemption, ListBoard, ListItem,
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
   Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
-  RemindersResponse, Prefs,
+  RemindersResponse, Prefs, SavedTheme,
 } from '../types';
 
 const BASE = '/api';
@@ -77,6 +77,9 @@ export const api = {
   regenerateInvite: () => post<{ invite_code: string }>('/members/household/regenerate-invite'),
   getPrefs: () => get<Prefs>('/members/me/prefs'),
   savePrefs: (prefs: Prefs) => put<Prefs>('/members/me/prefs', prefs),
+  themes: () => get<SavedTheme[]>('/themes'),
+  saveTheme: (b: { name: string; theme: any; created_by?: string }) => post<SavedTheme>('/themes', b),
+  deleteTheme: (id: string) => del(`/themes/${id}`),
 
   // ── Events ──
   events: (params?: Record<string, any>) => get<EventItem[]>('/events', params),
