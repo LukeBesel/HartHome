@@ -15,6 +15,7 @@ const Goals     = lazy(() => import('./pages/Goals'));
 const Rewards   = lazy(() => import('./pages/Rewards'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Notes     = lazy(() => import('./pages/Notes'));
+const Photos    = lazy(() => import('./pages/Photos'));
 const Members   = lazy(() => import('./pages/Members'));
 const Bills     = lazy(() => import('./pages/Bills'));
 const Budget    = lazy(() => import('./pages/Budget'));
@@ -66,6 +67,7 @@ export default function App() {
                 <Route path="/rewards" element={<Rewards />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/notes" element={<Notes />} />
+                <Route path="/photos" element={<Photos />} />
                 <Route path="/members" element={<Members />} />
                 <Route path="/bills" element={<Bills />} />
                 <Route path="/budget" element={<Budget />} />

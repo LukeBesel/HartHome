@@ -274,6 +274,16 @@ function seedHousehold(db, opts = {}) {
     { name: 'Vehicle title — Highlander', category: 'vehicle', reference: '' },
   ]);
 
+  // ── Photos (family slideshow) — stable placeholder images ──
+  ins('photos', ['url', 'caption', 'sort'], [
+    { url: 'https://picsum.photos/seed/harthome-beach/1200/800', caption: 'Lake trip last summer', sort: 1 },
+    { url: 'https://picsum.photos/seed/harthome-hike/1200/800', caption: 'Sunday hike', sort: 2 },
+    { url: 'https://picsum.photos/seed/harthome-park/1200/800', caption: 'Ava at the park', sort: 3 },
+    { url: 'https://picsum.photos/seed/harthome-bday/1200/800', caption: "Leo's last birthday", sort: 4 },
+    { url: 'https://picsum.photos/seed/harthome-garden/1200/800', caption: 'Backyard evening', sort: 5 },
+    { url: 'https://picsum.photos/seed/harthome-snow/1200/800', caption: 'First snow', sort: 6 },
+  ]);
+
   // ── Devices ──
   ins('devices', ['name', 'type', 'pairing_code', 'widgets'], [
     { name: 'Kitchen wall display', type: 'wall', pairing_code: 'KTCHN1', widgets: '["clock","weather","calendar","chores","meals"]' },

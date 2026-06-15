@@ -104,6 +104,7 @@ export interface DocItem { id: string; name: string; category: string; reference
 export interface Device { id: string; name: string; type: string; pairing_code: string; widgets: string; rotate_seconds: number; }
 export interface Announcement { id: string; body: string; author_id?: string | null; author_name?: string; avatar_color?: string; created_at: string; }
 export interface ActivityItem { id: string; member_id?: string | null; member_name: string; type: string; message: string; created_at: string; }
+export interface Photo { id: string; url: string; caption: string; sort: number; created_at: string; }
 
 export interface DashboardData {
   today: string;

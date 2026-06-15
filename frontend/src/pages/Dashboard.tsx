@@ -7,12 +7,14 @@ import {
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useAsync } from '../hooks/useCollection';
+import { useLiveRefresh } from '../api/live';
 import { Spinner, StatCard, Avatar, ProgressBar, Icon, EmptyState } from '../components/shared/ui';
 import { money, fmtTime, dueLabel, daysUntil, relativeTime, memberById } from '../utils/format';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { data, loading, refresh } = useAsync(() => api.dashboard(), []);
+  useLiveRefresh(refresh);
   const [msg, setMsg] = useState('');
 
   if (loading && !data) return <div className="p-6"><Spinner /></div>;

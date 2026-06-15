@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuid } = require('uuid');
 const db = require('./db');
 const { logActivity } = require('./helpers');
+const { emitChange } = require('./bus');
 
 // ─── Generic, household-scoped CRUD router factory ────────────────────────────
 // Most HartHome modules are plain collections of rows that belong to a
@@ -76,6 +77,7 @@ function crudRouter(opts) {
     const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(id);
     if (activity) logActivity(req.householdId, req.user, table, `added a ${label}: ${row.title || row.name || ''}`.trim());
     hooks.afterCreate?.(row, req);
+    emitChange(req.householdId, table);
     res.status(201).json(row);
   });
 
@@ -101,6 +103,7 @@ function crudRouter(opts) {
     }
     const row = db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(req.params.id);
     hooks.afterUpdate?.(row, existing, req);
+    emitChange(req.householdId, table);
     res.json(row);
   });
 
@@ -113,6 +116,7 @@ function crudRouter(opts) {
     hooks.beforeDelete?.(existing, req);
     db.prepare(`DELETE FROM ${table} WHERE id = ? AND household_id = ?`).run(req.params.id, req.householdId);
     if (activity) logActivity(req.householdId, req.user, table, `removed a ${label}: ${existing.title || existing.name || ''}`.trim());
+    emitChange(req.householdId, table);
     res.json({ ok: true });
   });
 

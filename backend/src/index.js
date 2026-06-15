@@ -10,6 +10,8 @@ const fs = require('fs');
 
 const { config, validate, banner } = require('./config');
 const { requireAuth } = require('./middleware/auth');
+const db = require('./db');
+const { bus } = require('./bus');
 
 const { router: authRouter } = require('./routes/auth');
 const membersRouter      = require('./routes/members');
@@ -29,6 +31,7 @@ const notesRouter        = require('./routes/notes');
 const documentsRouter    = require('./routes/documents');
 const devicesRouter      = require('./routes/devices');
 const announcementsRouter = require('./routes/announcements');
+const photosRouter       = require('./routes/photos');
 
 // ─── Startup validation ─────────────────────────────────────────────────────
 const { warnings, errors } = validate();
@@ -91,6 +94,28 @@ app.use('/api', generalLimiter);
 
 app.use('/api/auth', authRouter);            // public
 
+// ─── Live updates (Server-Sent Events) ────────────────────────────────────────
+// EventSource can't send an Authorization header, so the session token comes in
+// as a query param. Pushes a tiny "changed" ping (scoped to the household) so
+// wall displays and dashboards refresh the instant data changes.
+app.get('/api/stream', (req, res) => {
+  const token = req.query.token;
+  const row = token && db.prepare(
+    `SELECT u.household_id FROM sessions s JOIN users u ON u.id = s.user_id
+     WHERE s.token = ? AND s.expires_at > datetime('now') AND u.is_active = 1`
+  ).get(token);
+  if (!row) return res.status(401).end();
+
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders?.();
+  res.write(': connected\n\n');
+
+  const onChange = (evt) => { if (evt.householdId === row.household_id) res.write(`data: ${JSON.stringify({ table: evt.table })}\n\n`); };
+  bus.on('change', onChange);
+  const heartbeat = setInterval(() => res.write(': hb\n\n'), 25000);
+  req.on('close', () => { clearInterval(heartbeat); bus.off('change', onChange); });
+});
+
 app.use('/api', requireAuth);                // everything below requires a session
 app.use('/api/members',       membersRouter);
 app.use('/api/dashboard',     dashboardRouter);
@@ -109,6 +134,7 @@ app.use('/api/notes',         notesRouter);
 app.use('/api/documents',     documentsRouter);
 app.use('/api/devices',       devicesRouter);
 app.use('/api/announcements', announcementsRouter);
+app.use('/api/photos',        photosRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' }));
 

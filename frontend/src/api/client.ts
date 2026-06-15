@@ -1,7 +1,7 @@
 import type {
   User, Household, EventItem, Chore, Goal, Reward, Redemption, ListBoard, ListItem,
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
-  Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData,
+  Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
 } from '../types';
 
 const BASE = '/api';
@@ -192,6 +192,12 @@ export const api = {
   createAnnouncement: (body: string) => post<Announcement>('/announcements', { body }),
   deleteAnnouncement: (id: string) => del(`/announcements/${id}`),
   activity: () => get<ActivityItem[]>('/announcements/activity/feed'),
+
+  // ── Photos ──
+  photos: () => get<Photo[]>('/photos'),
+  createPhoto: (b: Partial<Photo>) => post<Photo>('/photos', b),
+  updatePhoto: (id: string, b: Partial<Photo>) => put<Photo>(`/photos/${id}`, b),
+  deletePhoto: (id: string) => del(`/photos/${id}`),
 };
 
 export type Api = typeof api;

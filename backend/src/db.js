@@ -392,6 +392,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_household ON activity(household_id, created_at);
 `);
 
+// ─── Photos (family slideshow / wall display) ────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS photos (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    caption TEXT DEFAULT '',
+    sort INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // ─── Lightweight migrations (additive columns on existing installs) ───────────
 const userCols = db.prepare('PRAGMA table_info(users)').all().map(r => r.name);
 if (!userCols.includes('pin')) db.exec('ALTER TABLE users ADD COLUMN pin TEXT');
