@@ -105,12 +105,21 @@ HartHome/
         └── utils/, hooks/
 ```
 
-## ☁️ Deploying
+## ☁️ Deploy on Railway (just like HartMonitor)
 
-The backend serves the built frontend, so the whole app runs as a single
-service. See `Dockerfile`, `render.yaml`, and `railway.json`. Point
-`DATABASE_PATH` at a **persistent volume** (e.g. `/data/harthome.db`) so your
-data survives redeploys, and leave `SEED_DEMO_DATA` unset in production.
+The backend serves the built frontend, so the whole app runs as **one service**.
+
+1. **New Project → Deploy from GitHub repo →** `LukeBesel/HartHome`.
+2. Railway auto-reads [`railway.json`](./railway.json):
+   build `npm install && npm run build`, start `node backend/src/index.js`,
+   health check `/api/health`.
+3. Add a **Volume** mounted at `/data`.
+4. Set variables: `NODE_ENV=production`, `DATABASE_PATH=/data/harthome.db`, and
+   `APP_URL=<your-railway-url>` (after first deploy). Leave `SEED_DEMO_DATA` unset.
+5. Deploy → open the URL → **Get started free**.
+
+A `Dockerfile` and `render.yaml` are included for container/Render deploys.
+**Full step-by-step guide: [`LAUNCH.md`](./LAUNCH.md).**
 
 ---
 
