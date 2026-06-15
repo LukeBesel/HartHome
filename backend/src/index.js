@@ -32,6 +32,7 @@ const documentsRouter    = require('./routes/documents');
 const devicesRouter      = require('./routes/devices');
 const announcementsRouter = require('./routes/announcements');
 const photosRouter       = require('./routes/photos');
+const remindersRouter    = require('./routes/reminders');
 
 // ─── Startup validation ─────────────────────────────────────────────────────
 const { warnings, errors } = validate();
@@ -135,6 +136,7 @@ app.use('/api/documents',     documentsRouter);
 app.use('/api/devices',       devicesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/photos',        photosRouter);
+app.use('/api/reminders',     remindersRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' }));
 

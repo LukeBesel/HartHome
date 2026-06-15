@@ -10,6 +10,7 @@ import { SECTIONS, NavItem } from '../../config/navigation';
 import { Avatar } from './ui';
 import Tour, { startTour } from './Tour';
 import ProfileSwitch from './ProfileSwitch';
+import AlertsBell from './AlertsBell';
 
 function useIsDesktop() {
   const [d, setD] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -148,6 +149,7 @@ export default function Layout() {
         )}
         <main className="flex-1 overflow-auto"><Outlet /></main>
       </div>
+      <AlertsBell />
       <Tour />
       {switching && <ProfileSwitch onClose={() => setSwitching(false)} />}
     </div>

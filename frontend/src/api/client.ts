@@ -2,6 +2,7 @@ import type {
   User, Household, EventItem, Chore, Goal, Reward, Redemption, ListBoard, ListItem,
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
   Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
+  RemindersResponse,
 } from '../types';
 
 const BASE = '/api';
@@ -192,6 +193,9 @@ export const api = {
   createAnnouncement: (body: string) => post<Announcement>('/announcements', { body }),
   deleteAnnouncement: (id: string) => del(`/announcements/${id}`),
   activity: () => get<ActivityItem[]>('/announcements/activity/feed'),
+
+  // ── Reminders ──
+  reminders: () => get<RemindersResponse>('/reminders'),
 
   // ── Photos ──
   photos: () => get<Photo[]>('/photos'),

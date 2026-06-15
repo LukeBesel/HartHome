@@ -105,6 +105,8 @@ export interface Device { id: string; name: string; type: string; pairing_code: 
 export interface Announcement { id: string; body: string; author_id?: string | null; author_name?: string; avatar_color?: string; created_at: string; }
 export interface ActivityItem { id: string; member_id?: string | null; member_name: string; type: string; message: string; created_at: string; }
 export interface Photo { id: string; url: string; caption: string; sort: number; created_at: string; }
+export interface Reminder { id: string; type: string; icon: string; title: string; subtitle: string; severity: 'overdue' | 'today' | 'soon'; link: string; date: string; }
+export interface RemindersResponse { count: number; overdue: number; items: Reminder[]; }
 
 export interface DashboardData {
   today: string;
