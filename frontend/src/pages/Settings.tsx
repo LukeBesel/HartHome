@@ -10,6 +10,7 @@ import {
 } from '../components/shared/ui';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENTS } from '../context/ThemeContext';
+import { enableNotifications, notificationsEnabled, disableNotifications } from '../components/shared/AlertsBell';
 import type { Household, Device } from '../types';
 
 const DEVICE_TYPES = ['wall', 'tablet', 'tv', 'phone', 'hub'];
@@ -75,6 +76,7 @@ export default function Settings() {
     } catch { /* ignore clipboard errors */ }
   };
 
+  const [notifyOn, setNotifyOn] = useState(notificationsEnabled());
   const [regenning, setRegenning] = useState(false);
   const regenInvite = async () => {
     setRegenning(true);
@@ -139,6 +141,19 @@ export default function Settings() {
           <p className="text-sm text-gray-500">Take a quick walkthrough of everything HartHome can do.</p>
         </div>
         <button onClick={() => window.dispatchEvent(new Event('harthome:start-tour'))} className="btn-primary">Start the tour</button>
+      </section>
+
+      {/* Notifications */}
+      <section className="card p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-gray-900">Notifications</h2>
+          <p className="text-sm text-gray-500">Get a daily browser reminder of what needs attention — bills, chores, maintenance, and birthdays.</p>
+        </div>
+        {notifyOn ? (
+          <button onClick={() => { disableNotifications(); setNotifyOn(false); }} className="btn-secondary">Turn off</button>
+        ) : (
+          <button onClick={async () => setNotifyOn(await enableNotifications())} className="btn-primary">Enable reminders</button>
+        )}
       </section>
 
       {/* Household */}
