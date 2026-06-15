@@ -65,6 +65,56 @@ test('signup → auth flow issues a working token', async () => {
   } finally { server.close(); }
 });
 
+test('invite flow: a partner can join the same household + PINs gate switching', async () => {
+  const server = await listen();
+  try {
+    const owner = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Invite Home', displayName: 'Owner', email: `o${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const oAuth = { Authorization: `Bearer ${owner.body.token}` };
+
+    const hh = await api(server, '/api/members/household/info', { headers: oAuth });
+    const code = hh.body.invite_code;
+    assert.ok(code);
+
+    // Public lookup resolves the household name.
+    const look = await api(server, `/api/auth/invite/${code}`);
+    assert.equal(look.body.household_name, 'Invite Home');
+
+    // Partner joins with the code → same household.
+    const join = await api(server, '/api/auth/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteCode: code, displayName: 'Partner', email: `p${Date.now()}@x.com`, password: 'password123' }),
+    });
+    assert.equal(join.status, 201);
+    const me = await api(server, '/api/auth/me', { headers: oAuth });
+    const partnerMe = await api(server, '/api/auth/me', { headers: { Authorization: `Bearer ${join.body.token}` } });
+    assert.equal(me.body.household_id, partnerMe.body.household_id);
+
+    // Add a child profile, PIN-protect it, and verify switching is gated.
+    const kid = await api(server, '/api/members', {
+      method: 'POST', headers: { ...oAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: 'Kid', role: 'child' }),
+    });
+    await api(server, '/api/auth/set-pin', {
+      method: 'POST', headers: { ...oAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member_id: kid.body.id, pin: '1234' }),
+    });
+    const bad = await api(server, '/api/auth/switch-profile', {
+      method: 'POST', headers: { ...oAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member_id: kid.body.id, pin: '0000' }),
+    });
+    assert.equal(bad.status, 403);
+    const good = await api(server, '/api/auth/switch-profile', {
+      method: 'POST', headers: { ...oAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ member_id: kid.body.id, pin: '1234' }),
+    });
+    assert.equal(good.status, 200);
+    assert.ok(good.body.token);
+  } finally { server.close(); }
+});
+
 test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
   const server = await listen();
   try {

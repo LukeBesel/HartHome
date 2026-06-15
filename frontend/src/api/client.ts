@@ -50,11 +50,16 @@ export const api = {
   // ── Auth ──
   signup: (b: { householdName: string; displayName: string; email: string; password: string }) =>
     post<{ token: string; user: User }>('/auth/signup', b),
+  joinHousehold: (b: { inviteCode: string; displayName: string; email: string; password: string }) =>
+    post<{ token: string; user: User }>('/auth/join', b),
+  lookupInvite: (code: string) => get<{ household_name: string }>(`/auth/invite/${encodeURIComponent(code)}`),
   login: (email: string, password: string) => post<{ token: string; user: User }>('/auth/login', { email, password }),
   demo: () => post<{ token: string; user: User; demo: boolean }>('/auth/demo'),
+  profiles: () => get<(User & { has_pin: boolean })[]>('/auth/profiles'),
+  setPin: (member_id: string | null, pin: string | null) => post<{ ok: boolean; has_pin: boolean }>('/auth/set-pin', { member_id, pin }),
   logout: () => post('/auth/logout'),
   me: () => get<User>('/auth/me'),
-  switchProfile: (member_id: string) => post<{ token: string; user: User }>('/auth/switch-profile', { member_id }),
+  switchProfile: (member_id: string, pin?: string) => post<{ token: string; user: User }>('/auth/switch-profile', { member_id, pin }),
   changePassword: (currentPassword: string, newPassword: string) => post('/auth/change-password', { currentPassword, newPassword }),
 
   // ── Dashboard ──
@@ -68,6 +73,7 @@ export const api = {
   deleteMember: (id: string) => del(`/members/${id}`),
   household: () => get<Household>('/members/household/info'),
   updateHousehold: (b: Partial<Household>) => put<Household>('/members/household/info', b),
+  regenerateInvite: () => post<{ invite_code: string }>('/members/household/regenerate-invite'),
 
   // ── Events ──
   events: (params?: Record<string, any>) => get<EventItem[]>('/events', params),

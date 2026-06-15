@@ -7,8 +7,9 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (householdName: string, displayName: string, email: string, password: string) => Promise<void>;
+  join: (inviteCode: string, displayName: string, email: string, password: string) => Promise<void>;
   startDemo: () => Promise<void>;
-  switchProfile: (memberId: string) => Promise<void>;
+  switchProfile: (memberId: string, pin?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   isAtLeast: (role: Role) => boolean;
@@ -51,7 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => finishAuth(await api.login(email, password));
   const signup = async (householdName: string, displayName: string, email: string, password: string) =>
     finishAuth(await api.signup({ householdName, displayName, email, password }));
-  const switchProfile = async (memberId: string) => finishAuth(await api.switchProfile(memberId));
+  const join = async (inviteCode: string, displayName: string, email: string, password: string) =>
+    finishAuth(await api.joinHousehold({ inviteCode, displayName, email, password }));
+  const switchProfile = async (memberId: string, pin?: string) => finishAuth(await api.switchProfile(memberId, pin));
   const startDemo = async () => {
     await finishAuth(await api.demo());
     // Flag a fresh tour so the guided walkthrough kicks off on the dashboard.
@@ -72,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isParent = !!user && (user.role === 'owner' || user.role === 'parent');
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, startDemo, switchProfile, logout, refresh, isAtLeast, isParent }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, join, startDemo, switchProfile, logout, refresh, isAtLeast, isParent }}>
       {children}
     </AuthContext.Provider>
   );
