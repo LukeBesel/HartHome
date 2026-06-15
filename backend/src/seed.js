@@ -74,6 +74,12 @@ function seedHousehold(db, opts = {}) {
     { title: 'Farmers market', start_at: dt(7, 9, 30), member_id: null, color: '#10b981', category: 'errand' },
     { title: 'Swim lessons', start_at: dt(8, 17), member_id: Ava, color: '#14b8a6', category: 'sports' },
   ]);
+  // A few repeating events to show recurrence on the calendar.
+  ins('events', ['title', 'start_at', 'member_id', 'color', 'category', 'recurrence'], [
+    { title: 'Trash night', start_at: dt(0, 20), member_id: null, color: '#64748b', category: 'general', recurrence: 'weekly' },
+    { title: 'Soccer practice', start_at: dt(2, 16), member_id: Ava, color: '#14b8a6', category: 'sports', recurrence: 'weekly' },
+    { title: 'Pay day', start_at: dt(1, 0), member_id: Jordan, color: '#10b981', category: 'general', recurrence: 'monthly' },
+  ]);
 
   // ── Chores ──
   ins('chores', ['title', 'assignee_id', 'points', 'recurrence', 'due_date', 'icon', 'description'], [

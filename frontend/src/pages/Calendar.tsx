@@ -1,314 +1,338 @@
-import { useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import {
+  CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Clock, MapPin,
+} from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
-import {
-  PageHeader, Spinner, Modal, Field, Input, Select, EmptyState, Avatar, Segmented,
-} from '../components/shared/ui';
-import { fmtDate, fmtTime, toLocalInput, memberById } from '../utils/format';
-import type { EventItem } from '../types';
+import { useLiveRefresh } from '../api/live';
+import { PageHeader, Spinner, Modal, Field, Input, Select, Segmented, Avatar } from '../components/shared/ui';
+import { fmtTime, toLocalInput, memberById } from '../utils/format';
+import type { EventItem, User } from '../types';
 
 const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444'];
 const CATEGORIES = ['general', 'family', 'school', 'sports', 'medical', 'work', 'errand', 'birthday'];
+const RECURRENCE = [
+  { value: 'none', label: 'Does not repeat' }, { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' }, { value: 'biweekly', label: 'Every 2 weeks' },
+  { value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' },
+];
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-interface EventForm {
-  id?: string;
-  title: string;
-  start_at: string;
-  end_at: string;
-  all_day: boolean;
-  location: string;
-  member_id: string;
-  color: string;
-  category: string;
-  colorTouched: boolean;
+type View = 'month' | 'week' | 'agenda';
+type Occurrence = EventItem & { _start: Date; _key: string };
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeek = (d: Date) => addDays(d, -d.getDay());
+
+// Expand a stored event into the concrete occurrences that fall within a window.
+// Recurrence lives on the event row; we materialize instances client-side so the
+// calendar shows repeating events without storing every copy.
+function expand(events: EventItem[], from: Date, to: Date): Occurrence[] {
+  const out: Occurrence[] = [];
+  for (const e of events) {
+    const base = new Date(e.start_at);
+    if (isNaN(+base)) continue;
+    const rec = e.recurrence || 'none';
+    const push = (d: Date) => out.push({ ...e, _start: d, _key: `${e.id}-${ymd(d)}` });
+    if (rec === 'none') {
+      if (base >= from && base <= to) push(base);
+      continue;
+    }
+    let cur = new Date(base);
+    let guard = 0;
+    while (cur <= to && guard++ < 800) {
+      if (cur >= from) push(new Date(cur));
+      if (rec === 'daily') cur = addDays(cur, 1);
+      else if (rec === 'weekly') cur = addDays(cur, 7);
+      else if (rec === 'biweekly') cur = addDays(cur, 14);
+      else if (rec === 'monthly') cur = new Date(cur.getFullYear(), cur.getMonth() + 1, base.getDate(), base.getHours(), base.getMinutes());
+      else if (rec === 'yearly') cur = new Date(cur.getFullYear() + 1, base.getMonth(), base.getDate(), base.getHours(), base.getMinutes());
+      else break;
+    }
+  }
+  return out.sort((a, b) => +a._start - +b._start);
 }
 
-const blankForm = (start?: Date): EventForm => ({
-  title: '',
-  start_at: toLocalInput(start ? start.toISOString() : undefined),
-  end_at: '',
-  all_day: false,
-  location: '',
-  member_id: '',
-  color: COLORS[0],
-  category: 'general',
-  colorTouched: false,
-});
+// Minimal .ics (VEVENT) parser — enough for typical Google/Apple exports.
+function parseICS(text: string): Partial<EventItem>[] {
+  const events: Partial<EventItem>[] = [];
+  const lines = text.replace(/\r\n[ \t]/g, '').split(/\r?\n/); // unfold continuation lines
+  let cur: any = null;
+  const toISO = (v: string) => {
+    const m = v.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s, z] = m;
+    if (!h) return new Date(+y, +mo - 1, +d, 9, 0).toISOString();
+    return z ? new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s || 0))).toISOString()
+             : new Date(+y, +mo - 1, +d, +h, +mi, +(s || 0)).toISOString();
+  };
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') cur = {};
+    else if (line === 'END:VEVENT') { if (cur?.start_at) events.push(cur); cur = null; }
+    else if (cur) {
+      const idx = line.indexOf(':'); if (idx < 0) continue;
+      const key = line.slice(0, idx).split(';')[0]; const val = line.slice(idx + 1);
+      if (key === 'SUMMARY') cur.title = val;
+      else if (key === 'LOCATION') cur.location = val;
+      else if (key === 'DESCRIPTION') cur.description = val;
+      else if (key === 'DTSTART') { cur.start_at = toISO(val); cur.all_day = /^\d{8}$/.test(val) ? 1 : 0; }
+      else if (key === 'DTEND') cur.end_at = toISO(val);
+    }
+  }
+  return events;
+}
 
-const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const emptyForm = (date?: Date) => ({
+  id: '', title: '', start_at: toLocalInput(date ? new Date(new Date(date).setHours(9, 0, 0, 0)).toISOString() : null),
+  end_at: '', all_day: false, location: '', member_id: '', color: COLORS[0], category: 'general', recurrence: 'none',
+  _colorTouched: false,
+});
+type Form = ReturnType<typeof emptyForm>;
 
 export default function Calendar() {
   const { data: events, loading, refresh } = useAsync(() => api.events(), []);
   const { data: members } = useAsync(() => api.members(), []);
+  useLiveRefresh(refresh);
 
-  const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); return d; });
-  const [view, setView] = useState<'month' | 'agenda'>('month');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<EventForm>(blankForm());
+  const [view, setView] = useState<View>('month');
+  const [cursor, setCursor] = useState(new Date());
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<Form>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const today = new Date();
-  const memberList = members || [];
-  const allEvents = events || [];
+  const ms = members || [];
 
-  // Build the month grid (6 weeks of cells starting on the Sunday before/at the 1st).
-  const cells = useMemo(() => {
-    const firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-    const gridStart = new Date(firstOfMonth);
-    gridStart.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
-    return Array.from({ length: 42 }, (_, i) => {
-      const d = new Date(gridStart);
-      d.setDate(gridStart.getDate() + i);
-      return d;
-    });
-  }, [cursor]);
-
-  const eventsForDay = (day: Date) =>
-    allEvents
-      .filter((e) => { const d = new Date(e.start_at); return !isNaN(+d) && sameDay(d, day); })
-      .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
-
-  const agendaGroups = useMemo(() => {
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const upcoming = allEvents
-      .filter((e) => { const d = new Date(e.start_at); return !isNaN(+d) && +d >= +start; })
-      .sort((a, b) => +new Date(a.start_at) - +new Date(b.start_at));
-    const groups: { key: string; date: string; items: EventItem[] }[] = [];
-    for (const e of upcoming) {
-      const key = new Date(e.start_at).toDateString();
-      let g = groups.find((x) => x.key === key);
-      if (!g) { g = { key, date: e.start_at, items: [] }; groups.push(g); }
-      g.items.push(e);
+  const [winStart, winEnd, gridDays] = useMemo<[Date, Date, Date[]]>(() => {
+    if (view === 'week') {
+      const s = startOfWeek(cursor);
+      return [s, addDays(s, 6), Array.from({ length: 7 }, (_, i) => addDays(s, i))];
     }
-    return groups;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allEvents]);
+    if (view === 'agenda') {
+      const s = new Date(cursor); s.setHours(0, 0, 0, 0);
+      return [s, addDays(s, 45), []];
+    }
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const gridStart = startOfWeek(first);
+    const days = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+    return [gridStart, days[41], days];
+  }, [view, cursor]);
 
-  const openCreate = (day?: Date) => {
-    setForm(blankForm(day));
-    setModalOpen(true);
-  };
+  const occurrences = useMemo(
+    () => expand(events || [], new Date(new Date(winStart).setHours(0, 0, 0, 0)), new Date(new Date(winEnd).setHours(23, 59, 59))),
+    [events, winStart, winEnd]
+  );
+  const dayMap = useMemo(() => {
+    const map: Record<string, Occurrence[]> = {};
+    for (const o of occurrences) (map[ymd(o._start)] ||= []).push(o);
+    return map;
+  }, [occurrences]);
 
-  const openEdit = (e: EventItem) => {
+  const openCreate = (d?: Date) => { setForm(emptyForm(d)); setOpen(true); };
+  const openEdit = (o: Occurrence) => {
     setForm({
-      id: e.id,
-      title: e.title,
-      start_at: toLocalInput(e.start_at),
-      end_at: e.end_at ? toLocalInput(e.end_at) : '',
-      all_day: !!e.all_day,
-      location: e.location || '',
-      member_id: e.member_id || '',
-      color: e.color || COLORS[0],
-      category: e.category || 'general',
-      colorTouched: true,
+      id: o.id, title: o.title, start_at: toLocalInput(o.start_at), end_at: o.end_at ? toLocalInput(o.end_at) : '',
+      all_day: !!o.all_day, location: o.location || '', member_id: o.member_id || '', color: o.color,
+      category: o.category || 'general', recurrence: o.recurrence || 'none', _colorTouched: true,
     });
-    setModalOpen(true);
-  };
-
-  const pickMember = (id: string) => {
-    setForm((f) => {
-      const m = memberById(memberList, id);
-      return { ...f, member_id: id, color: !f.colorTouched && m ? m.avatar_color : f.color };
-    });
+    setOpen(true);
   };
 
   const save = async () => {
     if (!form.title.trim() || !form.start_at) return;
     setSaving(true);
+    const body: Partial<EventItem> = {
+      title: form.title.trim(),
+      start_at: new Date(form.start_at).toISOString(),
+      end_at: form.end_at ? new Date(form.end_at).toISOString() : null,
+      all_day: form.all_day ? 1 : 0,
+      location: form.location.trim(),
+      member_id: form.member_id || null,
+      color: form.color, category: form.category, recurrence: form.recurrence,
+    };
     try {
-      const body: Partial<EventItem> = {
-        title: form.title.trim(),
-        start_at: new Date(form.start_at).toISOString(),
-        end_at: form.end_at ? new Date(form.end_at).toISOString() : null,
-        all_day: form.all_day ? 1 : 0,
-        location: form.location,
-        member_id: form.member_id || null,
-        color: form.color,
-        category: form.category,
-      };
-      if (form.id) await api.updateEvent(form.id, body);
-      else await api.createEvent(body);
-      setModalOpen(false);
-      await refresh();
-    } finally {
-      setSaving(false);
-    }
+      if (form.id) await api.updateEvent(form.id, body); else await api.createEvent(body);
+      setOpen(false); await refresh();
+    } finally { setSaving(false); }
   };
 
   const remove = async () => {
     if (!form.id) return;
-    setSaving(true);
-    try {
-      await api.deleteEvent(form.id);
-      setModalOpen(false);
-      await refresh();
-    } finally {
-      setSaving(false);
-    }
+    if (!window.confirm('Delete this event? (Removes the whole series if it repeats.)')) return;
+    await api.deleteEvent(form.id); setOpen(false); await refresh();
   };
 
-  const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const importICS = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const text = await file.text();
+    const parsed = parseICS(text).filter(ev => ev.title && ev.start_at);
+    if (!parsed.length) { alert('No events found in that .ics file.'); return; }
+    let n = 0;
+    for (const ev of parsed) {
+      await api.createEvent({ ...ev, color: COLORS[n % COLORS.length], category: 'general', recurrence: 'none' }).catch(() => {});
+      n++;
+    }
+    if (fileRef.current) fileRef.current.value = '';
+    await refresh();
+    alert(`Imported ${n} event${n === 1 ? '' : 's'}.`);
+  };
+
+  const shift = (dir: number) => {
+    const d = new Date(cursor);
+    if (view === 'week') d.setDate(d.getDate() + dir * 7);
+    else if (view === 'agenda') d.setDate(d.getDate() + dir * 14);
+    else d.setMonth(d.getMonth() + dir);
+    setCursor(d);
+  };
+
+  const title = view === 'week'
+    ? `${winStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${winEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    : cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  if (loading && !events) return <div className="p-6"><Spinner /></div>;
+  const today = new Date();
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <PageHeader
-        title="Calendar"
-        subtitle={monthLabel}
-        icon={CalendarDays}
+      <PageHeader title="Calendar" subtitle={title} icon={CalendarDays}
         actions={
           <>
-            <Segmented
-              options={[{ value: 'month', label: 'Month' }, { value: 'agenda', label: 'Agenda' }]}
-              value={view}
-              onChange={setView}
-            />
-            <div className="inline-flex items-center gap-1">
-              <button className="btn-ghost p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={18} /></button>
-              <button className="btn-secondary" onClick={() => { const d = new Date(); d.setDate(1); setCursor(d); }}>Today</button>
-              <button className="btn-ghost p-2" onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={18} /></button>
-            </div>
+            <input ref={fileRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={importICS} />
+            <button className="btn-secondary" onClick={() => fileRef.current?.click()} title="Import an .ics file (Google/Apple export)"><Upload size={16} /> Import</button>
             <button className="btn-primary" onClick={() => openCreate()}><Plus size={16} /> New event</button>
           </>
         }
       />
 
-      {loading && !events ? (
-        <Spinner />
-      ) : view === 'month' ? (
-        <div className="card p-2 sm:p-3">
-          <div className="grid grid-cols-7 mb-1">
-            {DOW.map((d) => (
-              <div key={d} className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider py-2">{d}</div>
-            ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
+          <button className="btn-ghost p-2" onClick={() => shift(-1)} aria-label="Previous"><ChevronLeft size={18} /></button>
+          <button className="btn-secondary" onClick={() => setCursor(new Date())}>Today</button>
+          <button className="btn-ghost p-2" onClick={() => shift(1)} aria-label="Next"><ChevronRight size={18} /></button>
+        </div>
+        <Segmented options={[{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }, { value: 'agenda', label: 'Agenda' }]} value={view} onChange={(v) => setView(v as View)} />
+      </div>
+
+      {view === 'agenda' ? (
+        <AgendaView occurrences={occurrences} members={ms} onEdit={openEdit} />
+      ) : view === 'week' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+          {gridDays.map((d) => {
+            const list = dayMap[ymd(d)] || [];
+            const isToday = sameDay(d, today);
+            return (
+              <div key={ymd(d)} className="card p-2 min-h-[140px] flex flex-col">
+                <button onClick={() => openCreate(d)} className="text-left mb-2">
+                  <div className="text-[11px] uppercase tracking-wide text-gray-400">{DOW[d.getDay()]}</div>
+                  <div className={`text-lg font-bold ${isToday ? 'text-white w-7 h-7 rounded-full flex items-center justify-center' : 'text-gray-800'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
+                </button>
+                <div className="space-y-1 flex-1">
+                  {list.map(o => <EventPill key={o._key} o={o} onClick={() => openEdit(o)} />)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="card overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50/50">
+            {DOW.map(d => <div key={d} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400">{d}</div>)}
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {cells.map((day, i) => {
-              const inMonth = day.getMonth() === cursor.getMonth();
-              const isToday = sameDay(day, today);
-              const dayEvents = eventsForDay(day);
+          <div className="grid grid-cols-7">
+            {gridDays.map((d) => {
+              const list = dayMap[ymd(d)] || [];
+              const inMonth = d.getMonth() === cursor.getMonth();
+              const isToday = sameDay(d, today);
               return (
-                <button
-                  key={i}
-                  onClick={() => openCreate(day)}
-                  className={`text-left min-h-[84px] sm:min-h-[110px] rounded-xl border p-1.5 transition-colors hover:bg-gray-50 ${inMonth ? 'border-gray-100' : 'border-transparent bg-gray-50/40'}`}
-                >
-                  <div className="flex justify-end">
-                    <span
-                      className={`inline-flex items-center justify-center w-6 h-6 text-xs font-semibold rounded-full ${inMonth ? 'text-gray-700' : 'text-gray-300'}`}
-                      style={isToday ? { boxShadow: 'inset 0 0 0 2px var(--accent)', color: 'var(--accent)' } : undefined}
-                    >
-                      {day.getDate()}
-                    </span>
-                  </div>
-                  <div className="mt-1 space-y-1">
-                    {dayEvents.slice(0, 3).map((e) => (
-                      <div
-                        key={e.id}
-                        onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}
-                        className="truncate text-[11px] leading-tight rounded-md px-1.5 py-0.5 font-medium cursor-pointer"
-                        style={{ backgroundColor: `${e.color}22`, color: e.color }}
-                        title={e.title}
-                      >
-                        {!e.all_day && <span className="opacity-70">{fmtTime(e.start_at)} </span>}{e.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className="text-[10px] text-gray-400 px-1">+{dayEvents.length - 3} more</div>
-                    )}
+                <button key={ymd(d)} onClick={() => openCreate(d)}
+                  className={`text-left border-b border-r border-gray-100 min-h-[92px] p-1.5 align-top hover:bg-gray-50/60 transition-colors ${inMonth ? '' : 'bg-gray-50/40'}`}>
+                  <div className={`text-xs font-semibold mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
+                  <div className="space-y-0.5">
+                    {list.slice(0, 3).map(o => <EventPill key={o._key} o={o} onClick={(e) => { e.stopPropagation(); openEdit(o); }} />)}
+                    {list.length > 3 && <div className="text-[10px] text-gray-400 pl-1">+{list.length - 3} more</div>}
                   </div>
                 </button>
               );
             })}
           </div>
         </div>
-      ) : agendaGroups.length === 0 ? (
-        <EmptyState icon={CalendarDays} title="No upcoming events" message="Add an event to see it on your agenda." action={<button className="btn-primary" onClick={() => openCreate()}><Plus size={16} /> New event</button>} />
-      ) : (
-        <div className="space-y-5">
-          {agendaGroups.map((g) => (
-            <div key={g.key}>
-              <h3 className="text-sm font-semibold text-gray-500 mb-2">{fmtDate(g.date, { weekday: 'long', month: 'short', day: 'numeric' })}</h3>
-              <div className="space-y-2">
-                {g.items.map((e) => {
-                  const m = memberById(memberList, e.member_id);
-                  return (
-                    <button key={e.id} onClick={() => openEdit(e)} className="card card-hover w-full text-left p-3 flex items-center gap-3">
-                      <span className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: e.color }} />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-gray-900 truncate">{e.title}</div>
-                        <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap mt-0.5">
-                          <span>{e.all_day ? 'All day' : fmtTime(e.start_at)}</span>
-                          {e.location && <span className="inline-flex items-center gap-1"><MapPin size={12} />{e.location}</span>}
-                          <span className="badge badge-gray">{e.category}</span>
-                        </div>
-                      </div>
-                      {m && <Avatar user={m} size={30} />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       )}
 
-      <Modal
-        open={modalOpen}
-        title={form.id ? 'Edit event' : 'New event'}
-        onClose={() => setModalOpen(false)}
-        footer={
-          <>
-            {form.id && <button className="btn-danger mr-auto" onClick={remove} disabled={saving}><Trash2 size={16} /> Delete</button>}
-            <button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button className="btn-primary" onClick={save} disabled={saving || !form.title.trim()}>{saving ? 'Saving…' : 'Save'}</button>
-          </>
-        }
-      >
-        <Field label="Title">
-          <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" />
-        </Field>
-        <Field label="Starts">
-          <Input type="datetime-local" value={form.start_at} onChange={(e) => setForm({ ...form, start_at: e.target.value })} />
-        </Field>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <input type="checkbox" checked={form.all_day} onChange={(e) => setForm({ ...form, all_day: e.target.checked })} />
-          All-day event
+      <Modal open={open} title={form.id ? 'Edit event' : 'New event'} onClose={() => setOpen(false)}
+        footer={<>
+          {form.id && <button className="btn-ghost text-red-600 mr-auto" onClick={remove}><Trash2 size={15} /> Delete</button>}
+          <button className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
+          <button className="btn-primary" onClick={save} disabled={saving || !form.title.trim()}>{saving ? 'Saving…' : 'Save'}</button>
+        </>}>
+        <Field label="Title"><Input value={form.title} placeholder="Soccer practice" onChange={e => setForm({ ...form, title: e.target.value })} /></Field>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" checked={form.all_day} onChange={e => setForm({ ...form, all_day: e.target.checked })} /> All day
         </label>
-        <Field label="Ends" hint="Optional">
-          <Input type="datetime-local" value={form.end_at} onChange={(e) => setForm({ ...form, end_at: e.target.value })} />
-        </Field>
-        <Field label="Location" hint="Optional">
-          <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Where?" />
-        </Field>
-        <Field label="Assignee" hint="Optional">
-          <Select value={form.member_id} onChange={(e) => pickMember(e.target.value)}>
-            <option value="">No one</option>
-            {memberList.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
-          </Select>
-        </Field>
-        <Field label="Color">
-          <div className="flex flex-wrap gap-2">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setForm({ ...form, color: c, colorTouched: true })}
-                className="w-8 h-8 rounded-full transition-transform hover:scale-110"
-                style={{ backgroundColor: c, boxShadow: form.color === c ? '0 0 0 2px white, 0 0 0 4px var(--accent)' : 'none' }}
-                aria-label={c}
-              />
-            ))}
-          </div>
-        </Field>
-        <Field label="Category">
-          <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
-          </Select>
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Starts"><Input type={form.all_day ? 'date' : 'datetime-local'} value={form.all_day ? form.start_at.slice(0, 10) : form.start_at} onChange={e => setForm({ ...form, start_at: form.all_day ? `${e.target.value}T09:00` : e.target.value })} /></Field>
+          <Field label="Ends (optional)"><Input type={form.all_day ? 'date' : 'datetime-local'} value={form.end_at ? (form.all_day ? form.end_at.slice(0, 10) : form.end_at) : ''} onChange={e => setForm({ ...form, end_at: e.target.value ? (form.all_day ? `${e.target.value}T17:00` : e.target.value) : '' })} /></Field>
+        </div>
+        <Field label="Repeats"><Select value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value })}>{RECURRENCE.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</Select></Field>
+        <Field label="Who"><Select value={form.member_id} onChange={e => { const id = e.target.value; const mem = memberById(ms, id); setForm({ ...form, member_id: id, color: !form._colorTouched && mem ? mem.avatar_color : form.color }); }}>
+          <option value="">Whole family</option>
+          {ms.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
+        </Select></Field>
+        <Field label="Location (optional)"><Input value={form.location} placeholder="Riverside Field" onChange={e => setForm({ ...form, location: e.target.value })} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Category"><Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>{CATEGORIES.map(c => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}</Select></Field>
+          <Field label="Color">
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {COLORS.map(c => <button key={c} type="button" onClick={() => setForm({ ...form, color: c, _colorTouched: true })} className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`} style={{ backgroundColor: c }} />)}
+            </div>
+          </Field>
+        </div>
       </Modal>
+    </div>
+  );
+}
+
+function EventPill({ o, onClick }: { o: Occurrence; onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button onClick={onClick} className="w-full text-left px-1.5 py-0.5 rounded-md text-[11px] font-medium truncate flex items-center gap-1 hover:opacity-90"
+      style={{ backgroundColor: `${o.color}22`, color: o.color }}>
+      {!o.all_day && <span className="opacity-70">{fmtTime(o._start.toISOString())}</span>}
+      <span className="truncate">{o.title}</span>
+    </button>
+  );
+}
+
+function AgendaView({ occurrences, members, onEdit }: { occurrences: Occurrence[]; members: User[]; onEdit: (o: Occurrence) => void }) {
+  const groups: Record<string, Occurrence[]> = {};
+  for (const o of occurrences) (groups[o._start.toDateString()] ||= []).push(o);
+  const keys = Object.keys(groups);
+  if (!keys.length) return <div className="card p-10 text-center text-gray-400">No upcoming events. Add one to get started.</div>;
+  return (
+    <div className="space-y-4">
+      {keys.map(k => {
+        const d = new Date(k);
+        return (
+          <div key={k} className="card p-4">
+            <div className="text-sm font-semibold text-gray-800 mb-3">{d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+            <div className="space-y-1.5">
+              {groups[k].map(o => (
+                <button key={o._key} onClick={() => onEdit(o)} className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 text-left">
+                  <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: o.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-800 text-sm truncate">{o.title}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1"><Clock size={11} />{o.all_day ? 'All day' : fmtTime(o._start.toISOString())}</span>
+                      {o.location && <span className="inline-flex items-center gap-1"><MapPin size={11} />{o.location}</span>}
+                    </div>
+                  </div>
+                  {o.member_id && <Avatar user={memberById(members, o.member_id)} size={26} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
