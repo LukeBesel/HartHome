@@ -1,0 +1,32 @@
+name: CI
+
+# Build the app and run the backend test suite on every PR and push to main.
+# Mirrors how Railway builds the app (npm install && npm run build), so a green
+# check means the deploy build will succeed too.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend (same as Railway)
+        run: npm run build
+
+      - name: Run backend tests
+        run: npm test
