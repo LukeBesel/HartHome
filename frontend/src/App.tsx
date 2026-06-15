@@ -24,6 +24,7 @@ const Assets    = lazy(() => import('./pages/Assets'));
 const Contacts  = lazy(() => import('./pages/Contacts'));
 const Documents = lazy(() => import('./pages/Documents'));
 const Settings  = lazy(() => import('./pages/Settings'));
+const Appearance = lazy(() => import('./pages/Appearance'));
 const Display    = lazy(() => import('./pages/Display'));
 const Pricing   = lazy(() => import('./pages/Pricing'));
 const Legal     = lazy(() => import('./pages/Legal'));
@@ -76,6 +77,7 @@ export default function App() {
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/appearance" element={<Appearance />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Route>
             </Routes>

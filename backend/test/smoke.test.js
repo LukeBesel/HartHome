@@ -115,6 +115,24 @@ test('invite flow: a partner can join the same household + PINs gate switching',
   } finally { server.close(); }
 });
 
+test('per-user preferences round-trip and persist', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Prefs Home', displayName: 'P', email: `pr${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+    const empty = await api(server, '/api/members/me/prefs', { headers: auth });
+    assert.deepEqual(empty.body, {});
+    const prefs = { theme: { accent: '#ff8800', mode: 'dark', density: 'compact' }, dashboard: { widgets: [{ id: 'today', enabled: true }] } };
+    await api(server, '/api/members/me/prefs', { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify(prefs) });
+    const got = await api(server, '/api/members/me/prefs', { headers: auth });
+    assert.equal(got.body.theme.accent, '#ff8800');
+    assert.equal(got.body.dashboard.widgets[0].id, 'today');
+  } finally { server.close(); }
+});
+
 test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
   const server = await listen();
   try {

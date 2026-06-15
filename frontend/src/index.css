@@ -142,3 +142,52 @@
 .dark .border-pink-100, .dark .border-rose-100 { border-color: rgba(244,63,94,.3); }
 .dark ::-webkit-scrollbar-thumb { background-color: #334155; }
 .dark ::-webkit-scrollbar-thumb:hover { background-color: #475569; }
+
+/* ════════════ Customization: density, radius, wallpaper ════════════ */
+
+/* Compact density — tighten the roomy default for data-dense households. */
+[data-density="compact"] .card,
+[data-density="compact"] .card-hover { border-radius: 0.9rem; }
+[data-density="compact"] .stat-card { padding: 0.75rem 0.85rem; }
+[data-density="compact"] .p-5 { padding: 0.85rem; }
+[data-density="compact"] .sm\:p-6 { padding: 1rem; }
+[data-density="compact"] .input-field { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+[data-density="compact"] .btn-primary,
+[data-density="compact"] .btn-secondary,
+[data-density="compact"] .btn-danger,
+[data-density="compact"] .btn-success { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+
+/* Corner radius personality. "xl" (soft) is the default look. */
+[data-radius="sharp"] .card,
+[data-radius="sharp"] .card-hover,
+[data-radius="sharp"] .stat-card,
+[data-radius="sharp"] .input-field,
+[data-radius="sharp"] .btn-primary,
+[data-radius="sharp"] .btn-secondary,
+[data-radius="sharp"] .btn-danger,
+[data-radius="sharp"] .btn-success,
+[data-radius="sharp"] .btn-ghost { border-radius: 0.375rem; }
+[data-radius="rounded"] .card,
+[data-radius="rounded"] .card-hover,
+[data-radius="rounded"] .stat-card { border-radius: 1rem; }
+[data-radius="rounded"] .input-field,
+[data-radius="rounded"] .btn-primary,
+[data-radius="rounded"] .btn-secondary,
+[data-radius="rounded"] .btn-danger,
+[data-radius="rounded"] .btn-success,
+[data-radius="rounded"] .btn-ghost { border-radius: 0.75rem; }
+
+/* Wallpaper — a soft accent wash behind the app content (uses the live accent). */
+[data-wallpaper="aurora"] main {
+  background:
+    radial-gradient(720px 520px at 10% -8%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    radial-gradient(640px 520px at 98% 0%, color-mix(in srgb, var(--secondary) 13%, transparent), transparent 55%);
+  background-attachment: fixed;
+}
+[data-wallpaper="mesh"] main {
+  background:
+    radial-gradient(520px 420px at 18% 8%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 55%),
+    radial-gradient(520px 420px at 82% 26%, color-mix(in srgb, var(--secondary) 11%, transparent), transparent 55%),
+    radial-gradient(560px 440px at 50% 104%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 55%);
+  background-attachment: fixed;
+}

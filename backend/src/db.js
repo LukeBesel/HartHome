@@ -407,6 +407,7 @@ db.exec(`
 // ─── Lightweight migrations (additive columns on existing installs) ───────────
 const userCols = db.prepare('PRAGMA table_info(users)').all().map(r => r.name);
 if (!userCols.includes('pin')) db.exec('ALTER TABLE users ADD COLUMN pin TEXT');
+if (!userCols.includes('preferences')) db.exec("ALTER TABLE users ADD COLUMN preferences TEXT DEFAULT '{}'");
 
 module.exports = db;
 
