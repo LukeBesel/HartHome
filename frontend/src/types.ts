@@ -108,6 +108,31 @@ export interface Photo { id: string; url: string; caption: string; sort: number;
 export interface Reminder { id: string; type: string; icon: string; title: string; subtitle: string; severity: 'overdue' | 'today' | 'soon'; link: string; date: string; }
 export interface RemindersResponse { count: number; overdue: number; items: Reminder[]; }
 
+export interface ThemePrefs {
+  mode: 'system' | 'light' | 'dark';
+  accent: string;
+  secondary: string;
+  sidebar: 'midnight' | 'ink' | 'tinted' | 'black' | 'plum' | 'forest';
+  density: 'comfortable' | 'compact';
+  fontScale: 'sm' | 'md' | 'lg';
+  radius: 'sharp' | 'rounded' | 'xl';
+  wallpaper: 'plain' | 'aurora' | 'mesh';
+}
+export interface DashboardWidgetPref { id: string; enabled: boolean; }
+export interface DisplayPrefs {
+  widgets: string[];
+  background: 'aurora' | 'photo' | 'solid' | 'gradient';
+  clock24: boolean;
+  showWeather: boolean;
+  photoInterval: number;
+}
+export interface Prefs {
+  theme?: Partial<ThemePrefs>;
+  dashboard?: { widgets?: DashboardWidgetPref[] };
+  display?: Partial<DisplayPrefs>;
+  nav?: { hidden?: string[] };
+}
+
 export interface DashboardData {
   today: string;
   members: User[];

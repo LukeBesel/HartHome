@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink,
+  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
@@ -9,7 +9,7 @@ import {
   Spinner, PageHeader, Modal, Field, Input, Select, EmptyState,
 } from '../components/shared/ui';
 import { useAuth } from '../context/AuthContext';
-import { useTheme, ACCENTS } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { enableNotifications, notificationsEnabled, disableNotifications } from '../components/shared/AlertsBell';
 import type { Household, Device } from '../types';
 
@@ -20,7 +20,7 @@ interface DeviceForm { name: string; type: string; }
 
 export default function Settings() {
   const { user, isParent } = useAuth();
-  const { dark, toggleDark, accent, setAccent } = useTheme();
+  const { dark, toggleDark } = useTheme();
   const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
   const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
 
@@ -83,11 +83,6 @@ export default function Settings() {
     try { await api.regenerateInvite(); await refreshHousehold(); }
     catch { /* ignore */ }
     finally { setRegenning(false); }
-  };
-
-  const pickAccent = (id: string) => {
-    setAccent(id);
-    if (isParent) api.updateHousehold({ accent: id }).catch(() => { /* best-effort */ });
   };
 
   const changePassword = async () => {
@@ -193,36 +188,17 @@ export default function Settings() {
       </section>
 
       {/* Appearance */}
-      <section className="card p-5 sm:p-6 space-y-4">
-        <div>
-          <h2 className="font-bold text-gray-900">Appearance</h2>
-          <p className="text-sm text-gray-500">Choose your theme and accent color.</p>
-        </div>
-        <div className="flex items-center justify-between">
+      <section className="card p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, var(--accent), var(--secondary))' }}><Palette size={18} /></span>
           <div>
-            <div className="font-medium text-gray-900">Dark mode</div>
-            <div className="text-sm text-gray-500">{dark ? 'Currently on' : 'Currently off'}</div>
+            <h2 className="font-bold text-gray-900">Appearance & theme</h2>
+            <p className="text-sm text-gray-500">Colors, light/dark, density, corners, text size, and backgrounds.</p>
           </div>
-          <button className="btn-secondary" onClick={toggleDark} aria-label="Toggle dark mode">
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
-            {dark ? 'Light' : 'Dark'}
-          </button>
         </div>
-        <div>
-          <div className="font-medium text-gray-900 mb-2">Accent</div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {ACCENTS.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => pickAccent(a.id)}
-                aria-label={a.label}
-                title={a.label}
-                className={`w-9 h-9 rounded-full transition-transform hover:scale-105 ${accent === a.id ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
-                style={{ backgroundColor: a.color }}
-              />
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary" onClick={toggleDark} aria-label="Toggle dark mode">{dark ? <Sun size={16} /> : <Moon size={16} />}{dark ? 'Light' : 'Dark'}</button>
+          <Link to="/appearance" className="btn-primary">Open studio</Link>
         </div>
       </section>
 

@@ -89,6 +89,21 @@ router.put('/household/info', requireRole('parent'), (req, res) => {
   res.json(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId));
 });
 
+// ─── Per-user preferences (theme, dashboard layout, display config) ───────────
+// Synced server-side so a member's customizations follow them across devices.
+router.get('/me/prefs', (req, res) => {
+  const row = db.prepare('SELECT preferences FROM users WHERE id = ?').get(req.user.id);
+  let prefs = {};
+  try { prefs = JSON.parse(row?.preferences || '{}'); } catch { /* corrupt → defaults */ }
+  res.json(prefs);
+});
+
+router.put('/me/prefs', (req, res) => {
+  const prefs = (req.body && typeof req.body === 'object') ? req.body : {};
+  db.prepare('UPDATE users SET preferences = ? WHERE id = ?').run(JSON.stringify(prefs), req.user.id);
+  res.json(prefs);
+});
+
 // Regenerate the household invite code (invalidates the old one).
 router.post('/household/regenerate-invite', requireRole('parent'), (req, res) => {
   const code = Math.random().toString(36).slice(2, 8).toUpperCase();

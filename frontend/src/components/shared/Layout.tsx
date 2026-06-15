@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Settings, ChevronLeft, ChevronRight, LogOut, ChevronDown,
-  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon,
+  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon, Palette,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -98,6 +98,11 @@ export default function Layout() {
             className={`flex items-center rounded-xl text-sm font-medium text-indigo-200 hover:text-white hover:bg-white/10 transition-all ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             <MonitorPlay size={17} className="flex-shrink-0" />{!eff && <span>Display mode</span>}
           </Link>
+          <NavLink to="/appearance" title="Personalize"
+            className={({ isActive }) => `flex items-center rounded-xl text-sm font-medium transition-all ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'} ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}
+            style={({ isActive }) => isActive ? { backgroundColor: 'var(--nav-active)' } : {}}>
+            <Palette size={17} className="flex-shrink-0" />{!eff && <span>Personalize</span>}
+          </NavLink>
           <button onClick={toggleDark} title="Toggle theme"
             className={`flex items-center rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-all w-full ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             {dark ? <Sun size={17} /> : <Moon size={17} />}{!eff && <span>{dark ? 'Light mode' : 'Dark mode'}</span>}

@@ -19,9 +19,18 @@
     <meta property="og:type" content="website" />
     <script>
       try {
-        var dm = localStorage.getItem('hh_dark_mode');
-        var dark = dm != null ? dm === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (dark) document.documentElement.classList.add('dark');
+        var p = JSON.parse(localStorage.getItem('hh_prefs') || '{}');
+        var t = p.theme || {};
+        var mode = t.mode || 'system';
+        var dark = mode === 'dark' || (mode !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var r = document.documentElement;
+        if (dark) r.classList.add('dark');
+        if (t.accent) r.style.setProperty('--accent', t.accent);
+        if (t.secondary) r.style.setProperty('--secondary', t.secondary);
+        if (t.density) r.setAttribute('data-density', t.density);
+        if (t.radius) r.setAttribute('data-radius', t.radius);
+        if (t.wallpaper) r.setAttribute('data-wallpaper', t.wallpaper);
+        if (t.fontScale) r.style.fontSize = t.fontScale === 'sm' ? '14px' : t.fontScale === 'lg' ? '18px' : '16px';
       } catch (e) {}
     </script>
   </head>
