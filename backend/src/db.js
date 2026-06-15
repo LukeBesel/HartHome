@@ -392,6 +392,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_household ON activity(household_id, created_at);
 `);
 
+// ─── Saved/shareable household themes ─────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS household_themes (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    theme TEXT DEFAULT '{}',
+    created_by TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // ─── Photos (family slideshow / wall display) ────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS photos (

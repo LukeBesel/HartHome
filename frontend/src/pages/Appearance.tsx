@@ -1,6 +1,12 @@
-import { Palette, Sun, Moon, Monitor, RotateCcw, Check, Home, CalendarDays, Gift } from 'lucide-react';
-import { useTheme, ACCENTS, SIDEBARS, DENSITIES, FONT_SCALES, RADII, WALLPAPERS } from '../context/ThemeContext';
+import { useRef, useState } from 'react';
+import { Palette, Sun, Moon, Monitor, RotateCcw, Check, Home, CalendarDays, Gift, Save, Trash2, Upload, Sparkles } from 'lucide-react';
+import { useTheme, ACCENTS, SIDEBARS, DENSITIES, FONT_SCALES, RADII, WALLPAPERS, PRESETS } from '../context/ThemeContext';
 import { PageHeader, Segmented } from '../components/shared/ui';
+import { api } from '../api/client';
+import { useAsync } from '../hooks/useCollection';
+import { useAuth } from '../context/AuthContext';
+import { fileToDataURL } from '../utils/image';
+import type { ThemePrefs } from '../types';
 
 const sidebarSwatch = (id: string, accent: string) => {
   if (id === 'tinted') return accent;
@@ -9,6 +15,25 @@ const sidebarSwatch = (id: string, accent: string) => {
 
 export default function Appearance() {
   const { theme, setTheme, resetTheme } = useTheme();
+  const { user } = useAuth();
+  const { data: saved, refresh } = useAsync(() => api.themes(), []);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const saveCurrent = async () => {
+    const name = window.prompt('Name this theme (shared with your household):');
+    if (!name?.trim()) return;
+    await api.saveTheme({ name: name.trim(), theme, created_by: user?.id }).catch(() => {});
+    refresh();
+  };
+  const applySaved = (raw: string) => { try { setTheme(JSON.parse(raw) as Partial<ThemePrefs>); } catch { /* ignore */ } };
+  const onWallpaperFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    setBusy(true);
+    try { const data = await fileToDataURL(f); setTheme({ wallpaper: 'image', wallpaperImage: data }); }
+    catch { /* ignore */ }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -30,6 +55,48 @@ export default function Appearance() {
                 </button>
               ))}
             </div>
+          </Card>
+
+          {/* Quick looks (built-in presets) */}
+          <Card title="Quick looks" hint="One-tap starting points — tweak anything after.">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {PRESETS.map(p => (
+                <button key={p.id} onClick={() => setTheme(p.theme)}
+                  className="rounded-xl border-2 border-gray-200 hover:border-gray-300 p-3 text-left transition-all">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-6 h-6 rounded-lg" style={{ background: `linear-gradient(135deg, ${p.theme.accent}, ${p.theme.secondary})` }} />
+                    <span className="w-4 h-6 rounded" style={{ background: p.theme.sidebar === 'tinted' ? p.theme.accent : (SIDEBARS.find(s => s.id === p.theme.sidebar)?.bg || '#0a0e27') }} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {/* Saved household themes */}
+          <Card title="Your saved themes" hint="Save the current look and share it with your household.">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button className="btn-secondary" onClick={saveCurrent}><Save size={15} /> Save current</button>
+            </div>
+            {!saved || saved.length === 0 ? (
+              <p className="text-sm text-gray-400">No saved themes yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {saved.map(s => {
+                  let t: Partial<ThemePrefs> = {};
+                  try { t = JSON.parse(s.theme); } catch { /* ignore */ }
+                  return (
+                    <div key={s.id} className="flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-xl border border-gray-200">
+                      <button onClick={() => applySaved(s.theme)} className="flex items-center gap-2" title="Apply theme">
+                        <span className="w-6 h-6 rounded-lg" style={{ background: `linear-gradient(135deg, ${t.accent || '#6366f1'}, ${t.secondary || '#ec4899'})` }} />
+                        <span className="text-sm font-medium text-gray-700">{s.name}</span>
+                      </button>
+                      <button onClick={() => { api.deleteTheme(s.id).then(refresh); }} className="text-gray-300 hover:text-red-500" aria-label="Delete theme"><Trash2 size={14} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
 
           {/* Accent */}
@@ -70,19 +137,27 @@ export default function Appearance() {
 
           {/* Wallpaper */}
           <Card title="Background">
-            <div className="grid grid-cols-3 gap-3">
-              {WALLPAPERS.map(w => (
-                <button key={w.id} onClick={() => setTheme({ wallpaper: w.id })}
-                  className={`h-20 rounded-xl border-2 relative overflow-hidden transition-all ${theme.wallpaper === w.id ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <span className="absolute inset-0" style={{
-                    background: w.id === 'plain' ? 'var(--accent-light)' :
-                      w.id === 'aurora' ? `radial-gradient(circle at 20% 0%, ${theme.accent}40, transparent 60%), radial-gradient(circle at 90% 30%, ${theme.secondary}40, transparent 55%)` :
-                      `radial-gradient(circle at 20% 10%, ${theme.accent}40, transparent 50%), radial-gradient(circle at 80% 30%, ${theme.secondary}40, transparent 50%), radial-gradient(circle at 50% 100%, ${theme.accent}33, transparent 50%)`,
-                  }} />
-                  <span className="absolute bottom-1.5 left-2 text-xs font-medium text-gray-700">{w.label}</span>
-                </button>
-              ))}
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onWallpaperFile} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {WALLPAPERS.map(w => {
+                const isImage = w.id === 'image';
+                const bg = w.id === 'plain' ? 'var(--accent-light)'
+                  : w.id === 'aurora' ? `radial-gradient(circle at 20% 0%, ${theme.accent}40, transparent 60%), radial-gradient(circle at 90% 30%, ${theme.secondary}40, transparent 55%)`
+                  : w.id === 'mesh' ? `radial-gradient(circle at 20% 10%, ${theme.accent}40, transparent 50%), radial-gradient(circle at 80% 30%, ${theme.secondary}40, transparent 50%), radial-gradient(circle at 50% 100%, ${theme.accent}33, transparent 50%)`
+                  : undefined;
+                return (
+                  <button key={w.id}
+                    onClick={() => isImage ? (theme.wallpaperImage ? setTheme({ wallpaper: 'image' }) : fileRef.current?.click()) : setTheme({ wallpaper: w.id })}
+                    className={`h-20 rounded-xl border-2 relative overflow-hidden transition-all ${theme.wallpaper === w.id ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300'}`}>
+                    {isImage && theme.wallpaperImage
+                      ? <img src={theme.wallpaperImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      : <span className="absolute inset-0 flex items-center justify-center text-gray-400" style={{ background: bg }}>{isImage && <Upload size={18} />}</span>}
+                    <span className="absolute bottom-1.5 left-2 text-xs font-medium text-gray-700 bg-white/70 dark:bg-black/40 px-1 rounded">{busy && isImage ? 'Uploading…' : w.label}</span>
+                  </button>
+                );
+              })}
             </div>
+            {theme.wallpaper === 'image' && <button className="btn-ghost text-xs mt-2" onClick={() => fileRef.current?.click()}><Upload size={13} /> Change image</button>}
           </Card>
 
           {/* Layout knobs */}

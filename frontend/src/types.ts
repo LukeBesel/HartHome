@@ -116,8 +116,10 @@ export interface ThemePrefs {
   density: 'comfortable' | 'compact';
   fontScale: 'sm' | 'md' | 'lg';
   radius: 'sharp' | 'rounded' | 'xl';
-  wallpaper: 'plain' | 'aurora' | 'mesh';
+  wallpaper: 'plain' | 'aurora' | 'mesh' | 'image';
+  wallpaperImage?: string;
 }
+export interface SavedTheme { id: string; name: string; theme: string; created_by?: string | null; created_at: string; }
 export interface DashboardWidgetPref { id: string; enabled: boolean; }
 export interface DisplayPrefs {
   widgets: string[];
