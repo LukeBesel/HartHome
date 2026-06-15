@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.env
+.env.local
+.DS_Store
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/harthome.db*
+/data/
+coverage/

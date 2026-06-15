@@ -1,0 +1,72 @@
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { api } from '../api/client';
+import type { User, Role } from '../types';
+
+interface AuthContextValue {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (householdName: string, displayName: string, email: string, password: string) => Promise<void>;
+  switchProfile: (memberId: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
+  isAtLeast: (role: Role) => boolean;
+  /** Parents & owners can manage members, approve rewards, edit household settings. */
+  isParent: boolean;
+}
+
+const ROLE_LEVELS: Record<string, number> = { owner: 4, parent: 3, member: 2, child: 1 };
+const AuthContext = createContext<AuthContextValue>(null!);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('hh_user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [loading, setLoading] = useState(true);
+
+  const persist = (u: User | null) => {
+    setUser(u);
+    if (u) localStorage.setItem('hh_user', JSON.stringify(u));
+    else localStorage.removeItem('hh_user');
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('hh_token');
+    if (!token) { setLoading(false); return; }
+    api.me()
+      .then(persist)
+      .catch(() => { localStorage.removeItem('hh_token'); persist(null); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const finishAuth = async (data: { token: string; user: User }) => {
+    localStorage.setItem('hh_token', data.token);
+    persist(data.user);
+    const full = await api.me().catch(() => data.user);
+    persist(full);
+  };
+
+  const login = async (email: string, password: string) => finishAuth(await api.login(email, password));
+  const signup = async (householdName: string, displayName: string, email: string, password: string) =>
+    finishAuth(await api.signup({ householdName, displayName, email, password }));
+  const switchProfile = async (memberId: string) => finishAuth(await api.switchProfile(memberId));
+  const refresh = async () => { const u = await api.me().catch(() => null); if (u) persist(u); };
+
+  const logout = async () => {
+    await api.logout().catch(() => {});
+    localStorage.removeItem('hh_token');
+    persist(null);
+  };
+
+  const isAtLeast = (role: Role) => !!user && (ROLE_LEVELS[user.role] ?? 0) >= (ROLE_LEVELS[role] ?? 99);
+  const isParent = !!user && (user.role === 'owner' || user.role === 'parent');
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, signup, switchProfile, logout, refresh, isAtLeast, isParent }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
