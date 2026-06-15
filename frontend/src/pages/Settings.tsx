@@ -124,6 +124,15 @@ export default function Settings() {
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       <PageHeader title="Settings" subtitle="Household, appearance, account & screens" icon={SettingsIcon} />
 
+      {/* Guided tour */}
+      <section className="card p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-gray-900">Guided tour</h2>
+          <p className="text-sm text-gray-500">Take a quick walkthrough of everything HartHome can do.</p>
+        </div>
+        <button onClick={() => window.dispatchEvent(new Event('harthome:start-tour'))} className="btn-primary">Start the tour</button>
+      </section>
+
       {/* Household */}
       <section className="card p-5 sm:p-6 space-y-4">
         <div>

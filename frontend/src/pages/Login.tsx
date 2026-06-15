@@ -7,7 +7,7 @@ const GRADIENT = 'linear-gradient(135deg, #6366f1, #ec4899)';
 
 export default function Login() {
   const [params] = useSearchParams();
-  const { user, login, signup } = useAuth();
+  const { user, login, signup, startDemo } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'signup'>(params.get('mode') === 'signup' ? 'signup' : 'login');
   const [form, setForm] = useState({ householdName: '', displayName: '', email: '', password: '' });
@@ -32,8 +32,8 @@ export default function Login() {
 
   const demoLogin = async () => {
     setBusy(true); setError('');
-    try { await login('owner@harthome.demo', 'Demo123!'); navigate('/dashboard'); }
-    catch (err: any) { setError(err.message || 'Demo login unavailable.'); }
+    try { await startDemo(); navigate('/dashboard'); }
+    catch (err: any) { setError(err.message || 'Demo unavailable. Please try again.'); }
     finally { setBusy(false); }
   };
 

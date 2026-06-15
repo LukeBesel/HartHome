@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
 const { hashPassword, verifyPassword, generateToken, requireAuth } = require('../middleware/auth');
+const { seedHousehold } = require('../seed');
 
 const router = express.Router();
 
@@ -55,6 +56,28 @@ router.post('/signup', (req, res) => {
   const token = createSession(userId);
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   res.status(201).json({ token, user: publicUser(user) });
+});
+
+// ─── Explore the demo home ────────────────────────────────────────────────────
+// Spins up a brand-new, fully-populated demo household for the visitor and logs
+// them straight in. Each visitor gets their own isolated, mutable copy — so the
+// button works everywhere (including production where SEED_DEMO_DATA is off) and
+// no one steps on anyone else's data. The owner is a password-less sandbox
+// account reachable only via the returned session token.
+router.post('/demo', (req, res) => {
+  try {
+    const stamp = Math.random().toString(36).slice(2, 8);
+    const { ownerId } = seedHousehold(db, {
+      name: 'The Hart Family',
+      ownerEmail: `demo+${stamp}@harthome.demo`,
+    });
+    const token = createSession(ownerId);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(ownerId);
+    res.status(201).json({ token, user: publicUser(user), demo: true });
+  } catch (err) {
+    console.error('[demo] failed to create sandbox:', err.message);
+    res.status(500).json({ error: 'Could not start the demo. Please try again.' });
+  }
 });
 
 // ─── Log in ───────────────────────────────────────────────────────────────────

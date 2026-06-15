@@ -1,10 +1,12 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight, CalendarDays, CheckSquare, Gift, Target, ShoppingCart, Receipt,
   Wallet, Zap, Car, Phone, UtensilsCrossed, MonitorPlay, Sparkles, Check,
-  Smartphone, ShieldCheck, Bell, Home,
+  Smartphone, ShieldCheck, Bell, Home, Loader2,
 } from 'lucide-react';
 import { MarketingNav, MarketingFooter, Reveal } from '../marketing/Marketing';
+import { useAuth } from '../context/AuthContext';
 
 const GRADIENT = 'linear-gradient(135deg, #6366f1, #ec4899)';
 
@@ -62,6 +64,14 @@ function MiniDashboard() {
 }
 
 export default function Landing() {
+  const { startDemo } = useAuth();
+  const navigate = useNavigate();
+  const [demoBusy, setDemoBusy] = useState(false);
+  const launchDemo = async () => {
+    setDemoBusy(true);
+    try { await startDemo(); navigate('/dashboard'); }
+    catch { navigate('/login'); }
+  };
   return (
     <div className="bg-[#060911] text-white min-h-screen overflow-hidden">
       <MarketingNav />
@@ -92,11 +102,11 @@ export default function Landing() {
               <Link to="/login?mode=signup" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-white px-6 py-3.5 rounded-full transition-all hover:opacity-90 glow-lg" style={{ background: GRADIENT }}>
                 Start free <ArrowRight size={16} />
               </Link>
-              <Link to="/login" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-200 px-6 py-3.5 rounded-full border border-white/15 hover:bg-white/5 transition-all">
-                See the demo home
-              </Link>
+              <button onClick={launchDemo} disabled={demoBusy} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-200 px-6 py-3.5 rounded-full border border-white/15 hover:bg-white/5 transition-all disabled:opacity-60">
+                {demoBusy ? <><Loader2 size={16} className="animate-spin" /> Loading demo home…</> : 'Tour the demo home'}
+              </button>
             </div>
-            <p className="mt-4 text-xs text-gray-600">No credit card · Demo login: owner@harthome.demo / Demo123!</p>
+            <p className="mt-4 text-xs text-gray-600">No signup needed · A fully-furnished demo home with a guided tour</p>
           </Reveal>
           <Reveal delay={320}><div className="mt-16 max-w-3xl mx-auto"><MiniDashboard /></div></Reveal>
         </div>

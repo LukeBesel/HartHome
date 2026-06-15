@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Settings, ChevronLeft, ChevronRight, LogOut, ChevronDown,
-  Menu, X, Moon, Sun, MonitorPlay,
+  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { SECTIONS, NavItem } from '../../config/navigation';
 import { Avatar } from './ui';
+import Tour, { startTour } from './Tour';
 
 function useIsDesktop() {
   const [d, setD] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -30,6 +31,7 @@ export default function Layout() {
   const location = useLocation();
   const isDesktop = useIsDesktop();
   const eff = collapsed && isDesktop;
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('hh_is_demo') === 'true';
 
   useEffect(() => { localStorage.setItem('hh_sidebar', collapsed ? 'collapsed' : 'open'); }, [collapsed]);
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -135,8 +137,15 @@ export default function Layout() {
           <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, var(--accent), var(--secondary))' }}><Home size={14} className="text-white" /></div>
           <div className="font-bold text-sm text-gray-800 truncate">{user?.household_name || 'HartHome'}</div>
         </header>
+        {isDemo && (
+          <div className="flex items-center justify-center gap-3 px-4 py-2 text-xs font-medium text-white flex-shrink-0" style={{ background: 'linear-gradient(90deg, var(--accent), var(--secondary))' }}>
+            <span className="flex items-center gap-1.5"><Sparkles size={13} /> You're exploring a demo home — everything here is editable.</span>
+            <button onClick={startTour} className="underline underline-offset-2 hover:opacity-80 flex items-center gap-1"><PlayCircle size={13} /> Take the tour</button>
+          </div>
+        )}
         <main className="flex-1 overflow-auto"><Outlet /></main>
       </div>
+      <Tour />
     </div>
   );
 }
