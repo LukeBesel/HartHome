@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { api } from '../api/client';
+import { disconnectLive } from '../api/live';
 import type { User, Role } from '../types';
 
 interface AuthContextValue {
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await api.logout().catch(() => {});
+    disconnectLive();
     localStorage.removeItem('hh_token');
     localStorage.removeItem('hh_is_demo');
     localStorage.removeItem('hh_tour');

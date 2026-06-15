@@ -3,6 +3,7 @@ const { v4: uuid } = require('uuid');
 const db = require('../db');
 const { crudRouter } = require('../crud');
 const { logActivity } = require('../helpers');
+const { emitChange } = require('../bus');
 
 const router = express.Router();
 
@@ -50,6 +51,7 @@ router.post('/:id/complete', (req, res) => {
 
   logActivity(req.householdId, member || req.user,
     'chore', `completed "${chore.title}"${chore.points ? ` (+${chore.points} pts)` : ''}`);
+  emitChange(req.householdId, 'chores');
 
   res.json({
     ok: true,
