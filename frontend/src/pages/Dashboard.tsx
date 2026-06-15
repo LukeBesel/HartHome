@@ -3,15 +3,15 @@ import { Link } from 'react-router-dom';
 import {
   CalendarDays, CheckSquare, Receipt, ShoppingCart, Target, Car, Gift,
   Cake, Megaphone, Activity as ActivityIcon, Wallet, ArrowRight, Send,
-  Image as ImageIcon, SlidersHorizontal, GripVertical, ChevronUp, ChevronDown,
+  Image as ImageIcon, SlidersHorizontal, GripVertical, Settings2, Eye, EyeOff,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAsync } from '../hooks/useCollection';
 import { useLiveRefresh } from '../api/live';
-import { Spinner, StatCard, Avatar, ProgressBar, Icon, Modal } from '../components/shared/ui';
-import { money, fmtTime, dueLabel, daysUntil, relativeTime, memberById } from '../utils/format';
+import { Spinner, StatCard, Avatar, ProgressBar, Icon, Modal, Select } from '../components/shared/ui';
+import { money, fmtTime, fmtDate, dueLabel, daysUntil, relativeTime, memberById } from '../utils/format';
 import type { DashboardWidgetPref } from '../types';
 
 // Each home-screen widget: an id, a label for the customizer, and the grid span
@@ -30,6 +30,18 @@ const WIDGETS: { id: string; label: string; span: string }[] = [
 ];
 const DEFAULT_ORDER: DashboardWidgetPref[] = WIDGETS.map(w => ({ id: w.id, enabled: true }));
 
+// Per-widget settings, surfaced in the Customize panel.
+const opts = (arr: (string | number)[]) => arr.map(v => ({ value: String(v), label: String(v) }));
+const SETTINGS: Record<string, { key: string; label: string; options: { value: string; label: string }[]; def: string }[]> = {
+  schedule: [{ key: 'range', label: 'Show', def: 'today', options: [{ value: 'today', label: 'Today' }, { value: '3days', label: 'Next 3 days' }, { value: 'week', label: 'This week' }] }],
+  chores: [{ key: 'limit', label: 'Items', def: '6', options: opts([3, 6, 10, 20]) }],
+  goals: [{ key: 'limit', label: 'Items', def: '6', options: opts([2, 4, 6]) }],
+  points: [{ key: 'limit', label: 'Show', def: '99', options: [{ value: '3', label: 'Top 3' }, { value: '5', label: 'Top 5' }, { value: '99', label: 'Everyone' }] }],
+  lists: [{ key: 'limit', label: 'Items', def: '6', options: opts([3, 6, 10]) }],
+  photos: [{ key: 'count', label: 'Photos', def: '6', options: opts([3, 6, 9, 12]) }],
+  activity: [{ key: 'limit', label: 'Items', def: '8', options: opts([5, 8, 12]) }],
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { prefs, setPrefs } = useTheme();
@@ -38,6 +50,8 @@ export default function Dashboard() {
   useLiveRefresh(refresh);
   const [msg, setMsg] = useState('');
   const [customizing, setCustomizing] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [settingsFor, setSettingsFor] = useState<string | null>(null);
 
   if (loading && !data) return <div className="p-6"><Spinner /></div>;
   if (!data) return null;
@@ -50,14 +64,24 @@ export default function Dashboard() {
     ...saved.filter(w => WIDGETS.some(x => x.id === w.id)),
     ...WIDGETS.filter(x => !saved.some(w => w.id === x.id)).map(x => ({ id: x.id, enabled: true })),
   ];
-  const saveLayout = (next: DashboardWidgetPref[]) => setPrefs({ dashboard: { widgets: next } });
-  const move = (i: number, dir: number) => {
-    const next = [...layout]; const j = i + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[i], next[j]] = [next[j], next[i]];
+  const widgetConfig = prefs.dashboard?.config || {};
+  const saveLayout = (next: DashboardWidgetPref[]) => setPrefs({ dashboard: { ...prefs.dashboard, widgets: next } });
+  const toggle = (id: string) => saveLayout(layout.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+  const cfg = (id: string, key: string) => widgetConfig[id]?.[key] ?? SETTINGS[id]?.find(s => s.key === key)?.def ?? '';
+  const setCfg = (id: string, key: string, value: string) =>
+    setPrefs({ dashboard: { ...prefs.dashboard, widgets: layout, config: { ...widgetConfig, [id]: { ...widgetConfig[id], [key]: value } } } });
+
+  // Reorder via native drag-and-drop in the customize list.
+  const reorder = (from: string, to: string) => {
+    if (from === to) return;
+    const next = [...layout];
+    const fi = next.findIndex(w => w.id === from), ti = next.findIndex(w => w.id === to);
+    if (fi < 0 || ti < 0) return;
+    const [moved] = next.splice(fi, 1);
+    next.splice(ti, 0, moved);
     saveLayout(next);
   };
-  const toggle = (id: string) => saveLayout(layout.map(w => w.id === id ? { ...w, enabled: !w.enabled } : w));
+  const lim = (id: string, key: string) => parseInt(cfg(id, key), 10) || 99;
 
   const greeting = (() => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; })();
   const postAnnouncement = async () => { if (!msg.trim()) return; await api.createAnnouncement(msg.trim()); setMsg(''); refresh(); };
@@ -73,24 +97,35 @@ export default function Dashboard() {
           <Link to="/budget"><StatCard icon={Wallet} label="Net worth" value={money(data.finance.netWorth, { cents: false })} sub={`${money(data.finance.monthSpend, { cents: false })} spent`} tone="emerald" /></Link>
         </div>
       );
-      case 'schedule': return (
-        <Section title="Today's schedule" icon={CalendarDays} to="/calendar">
-          {data.todayEvents.length === 0 ? <Muted>Nothing scheduled today. Enjoy the calm. 🌿</Muted> : (
-            <div className="space-y-2">{data.todayEvents.map(e => (
-              <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50">
-                <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: e.color }} />
-                <div className="flex-1 min-w-0"><div className="font-medium text-gray-800 text-sm truncate">{e.title}</div>
-                  <div className="text-xs text-gray-500">{e.all_day ? 'All day' : fmtTime(e.start_at)}{e.location ? ` · ${e.location}` : ''}</div></div>
-                {e.member_id && <Avatar user={memberById(m, e.member_id)} size={26} />}
-              </div>))}
-            </div>
-          )}
-        </Section>
-      );
+      case 'schedule': {
+        const range = cfg('schedule', 'range');
+        const within = range === '3days' ? 3 : 7;
+        const evs = range === 'today'
+          ? data.todayEvents
+          : [...data.todayEvents, ...data.upcomingEvents.filter(e => (daysUntil(e.start_at) ?? 99) <= within)];
+        const titleTxt = range === 'today' ? "Today's schedule" : range === '3days' ? 'Next 3 days' : 'This week';
+        return (
+          <Section title={titleTxt} icon={CalendarDays} to="/calendar">
+            {evs.length === 0 ? <Muted>Nothing scheduled. Enjoy the calm. 🌿</Muted> : (
+              <div className="space-y-2">{evs.map(e => {
+                const d = daysUntil(e.start_at) ?? 0;
+                return (
+                  <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50">
+                    <span className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: e.color }} />
+                    <div className="flex-1 min-w-0"><div className="font-medium text-gray-800 text-sm truncate">{e.title}</div>
+                      <div className="text-xs text-gray-500">{range !== 'today' && d > 0 ? `${fmtDate(e.start_at)} · ` : ''}{e.all_day ? 'All day' : fmtTime(e.start_at)}{e.location ? ` · ${e.location}` : ''}</div></div>
+                    {e.member_id && <Avatar user={memberById(m, e.member_id)} size={26} />}
+                  </div>);
+              })}
+              </div>
+            )}
+          </Section>
+        );
+      }
       case 'chores': return (
         <Section title="Chores to knock out" icon={CheckSquare} to="/chores">
           {data.choresDue.length === 0 ? <Muted>All chores done — nice work! ✨</Muted> : (
-            <div className="space-y-1.5">{data.choresDue.slice(0, 6).map(c => (
+            <div className="space-y-1.5">{data.choresDue.slice(0, lim('chores', 'limit')).map(c => (
               <div key={c.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 group">
                 <button onClick={() => completeChore(c.id)} className="w-5 h-5 rounded-md border-2 border-gray-300 hover:border-emerald-500 hover:bg-emerald-50 transition-colors flex-shrink-0" title="Mark done" />
                 <Icon name={c.icon} size={16} className="text-gray-400 flex-shrink-0" />
@@ -105,7 +140,7 @@ export default function Dashboard() {
       );
       case 'goals': return data.goals.length === 0 ? null : (
         <Section title="Family goals" icon={Target} to="/goals">
-          <div className="grid sm:grid-cols-2 gap-3">{data.goals.map(g => (
+          <div className="grid sm:grid-cols-2 gap-3">{data.goals.slice(0, lim('goals', 'limit')).map(g => (
             <div key={g.id} className="p-3 rounded-xl border border-gray-100">
               <div className="text-sm font-medium text-gray-800 truncate mb-1.5">{g.title}</div>
               <ProgressBar value={g.current} max={g.target} />
@@ -143,7 +178,7 @@ export default function Dashboard() {
       );
       case 'points': return (
         <Section title="Points race" icon={Gift} to="/leaderboard">
-          <div className="space-y-2.5">{[...m].sort((a, b) => b.points - a.points).map((mem, i) => (
+          <div className="space-y-2.5">{[...m].sort((a, b) => b.points - a.points).slice(0, lim('points', 'limit')).map((mem, i) => (
             <div key={mem.id} className="flex items-center gap-3">
               <span className="text-xs font-bold text-gray-400 w-4">{i + 1}</span><Avatar user={mem} size={28} />
               <span className="flex-1 text-sm font-medium text-gray-700 truncate">{mem.display_name}</span>
@@ -155,7 +190,7 @@ export default function Dashboard() {
       case 'lists': return (
         <Section title="Lists" icon={ShoppingCart} to="/lists">
           {data.groceryLists.length === 0 ? <Muted>No lists yet.</Muted> : (
-            <div className="space-y-1.5">{data.groceryLists.map(l => (
+            <div className="space-y-1.5">{data.groceryLists.slice(0, lim('lists', 'limit')).map(l => (
               <Link key={l.id} to="/lists" className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
                 <span className="text-sm text-gray-700">{l.name}</span><span className="badge-gray">{l.open_items} open</span>
               </Link>))}
@@ -165,7 +200,7 @@ export default function Dashboard() {
       );
       case 'photos': return !photos || photos.length === 0 ? null : (
         <Section title="Photos" icon={ImageIcon} to="/photos">
-          <div className="grid grid-cols-3 gap-1.5">{photos.slice(0, 6).map(p => (
+          <div className="grid grid-cols-3 gap-1.5">{photos.slice(0, lim('photos', 'count')).map(p => (
             <div key={p.id} className="aspect-square rounded-lg overflow-hidden bg-black"><img src={p.url} alt={p.caption} className="w-full h-full object-cover" loading="lazy" /></div>
           ))}</div>
         </Section>
@@ -173,7 +208,7 @@ export default function Dashboard() {
       case 'activity': return (
         <Section title="Recent activity" icon={ActivityIcon}>
           {data.activity.length === 0 ? <Muted>Nothing yet.</Muted> : (
-            <div className="space-y-2">{data.activity.slice(0, 8).map(a => (
+            <div className="space-y-2">{data.activity.slice(0, lim('activity', 'limit')).map(a => (
               <div key={a.id} className="text-xs text-gray-600 flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: 'var(--accent)' }} />
                 <span><span className="font-medium text-gray-800">{a.member_name || 'Someone'}</span> {a.message} <span className="text-gray-400">· {relativeTime(a.created_at)}</span></span>
@@ -217,19 +252,42 @@ export default function Dashboard() {
 
       <Modal open={customizing} title="Customize your home screen" onClose={() => setCustomizing(false)}
         footer={<button className="btn-primary" onClick={() => setCustomizing(false)}>Done</button>}>
-        <p className="text-sm text-gray-500">Show, hide, and reorder the cards on your dashboard. Saved to your profile.</p>
+        <p className="text-sm text-gray-500">Drag to reorder, toggle visibility, and tune each card. Saved to your profile.</p>
         <div className="space-y-1.5">
-          {layout.map((w, i) => {
+          {layout.map((w) => {
             const meta = WIDGETS.find(x => x.id === w.id)!;
+            const settings = SETTINGS[w.id];
+            const expanded = settingsFor === w.id;
             return (
-              <div key={w.id} className="flex items-center gap-2 p-2 rounded-xl border border-gray-100">
-                <GripVertical size={15} className="text-gray-300" />
-                <span className={`flex-1 text-sm font-medium ${w.enabled ? 'text-gray-800' : 'text-gray-400'}`}>{meta.label}</span>
-                <button className="btn-ghost p-1" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up"><ChevronUp size={15} /></button>
-                <button className="btn-ghost p-1" onClick={() => move(i, 1)} disabled={i === layout.length - 1} aria-label="Move down"><ChevronDown size={15} /></button>
-                <button onClick={() => toggle(w.id)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${w.enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                  {w.enabled ? 'Shown' : 'Hidden'}
-                </button>
+              <div key={w.id}
+                draggable
+                onDragStart={() => setDragId(w.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => { if (dragId) reorder(dragId, w.id); setDragId(null); }}
+                onDragEnd={() => setDragId(null)}
+                className={`rounded-xl border border-gray-100 transition-all ${dragId === w.id ? 'opacity-40' : ''}`}>
+                <div className="flex items-center gap-2 p-2">
+                  <GripVertical size={15} className="text-gray-300 cursor-grab active:cursor-grabbing" />
+                  <span className={`flex-1 text-sm font-medium ${w.enabled ? 'text-gray-800' : 'text-gray-400'}`}>{meta.label}</span>
+                  {settings && (
+                    <button className={`btn-ghost p-1 ${expanded ? 'text-indigo-600' : ''}`} onClick={() => setSettingsFor(expanded ? null : w.id)} aria-label="Widget settings"><Settings2 size={14} /></button>
+                  )}
+                  <button onClick={() => toggle(w.id)} className="btn-ghost p-1" aria-label={w.enabled ? 'Hide' : 'Show'} title={w.enabled ? 'Shown' : 'Hidden'}>
+                    {w.enabled ? <Eye size={15} className="text-emerald-600" /> : <EyeOff size={15} className="text-gray-400" />}
+                  </button>
+                </div>
+                {settings && expanded && (
+                  <div className="px-3 pb-3 pt-1 space-y-2 border-t border-gray-50">
+                    {settings.map(s => (
+                      <label key={s.key} className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-gray-500">{s.label}</span>
+                        <Select value={cfg(w.id, s.key)} onChange={(e) => setCfg(w.id, s.key, e.target.value)} className="w-36">
+                          {s.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </Select>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
