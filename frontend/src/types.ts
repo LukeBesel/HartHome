@@ -128,7 +128,7 @@ export interface DisplayPrefs {
 }
 export interface Prefs {
   theme?: Partial<ThemePrefs>;
-  dashboard?: { widgets?: DashboardWidgetPref[] };
+  dashboard?: { widgets?: DashboardWidgetPref[]; config?: Record<string, Record<string, string>> };
   display?: Partial<DisplayPrefs>;
   nav?: { hidden?: string[] };
 }
