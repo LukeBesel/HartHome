@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: harthome
+    env: node
+    plan: starter
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PATH
+        value: /data/harthome.db
+    disk:
+      name: harthome-data
+      mountPath: /data
+      sizeGB: 1
