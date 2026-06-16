@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette,
+  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
@@ -10,6 +10,7 @@ import {
 } from '../components/shared/ui';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { SECTIONS } from '../config/navigation';
 import { enableNotifications, notificationsEnabled, disableNotifications } from '../components/shared/AlertsBell';
 import type { Household, Device } from '../types';
 
@@ -20,7 +21,10 @@ interface DeviceForm { name: string; type: string; }
 
 export default function Settings() {
   const { user, isParent } = useAuth();
-  const { dark, toggleDark } = useTheme();
+  const { dark, toggleDark, prefs, setPrefs } = useTheme();
+  const hiddenNav = new Set(prefs.nav?.hidden || []);
+  const setHiddenNav = (next: Set<string>) => setPrefs({ nav: { ...prefs.nav, hidden: [...next] } });
+  const toggleNav = (key: string) => { const n = new Set(hiddenNav); n.has(key) ? n.delete(key) : n.add(key); setHiddenNav(n); };
   const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
   const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
 
@@ -199,6 +203,49 @@ export default function Settings() {
         <div className="flex items-center gap-2">
           <button className="btn-secondary" onClick={toggleDark} aria-label="Toggle dark mode">{dark ? <Sun size={16} /> : <Moon size={16} />}{dark ? 'Light' : 'Dark'}</button>
           <Link to="/appearance" className="btn-primary">Open studio</Link>
+        </div>
+      </section>
+
+      {/* Modules & navigation */}
+      <section className="card p-5 sm:p-6 space-y-4">
+        <div>
+          <h2 className="font-bold text-gray-900">Modules & navigation</h2>
+          <p className="text-sm text-gray-500">Show or hide whole sections or individual features in your sidebar. Hidden items just disappear from your menu — your data stays.</p>
+        </div>
+        <div className="space-y-3">
+          {SECTIONS.map((section) => {
+            const sectionHidden = hiddenNav.has(`section:${section.id}`);
+            const SectionIcon = section.items[0].icon;
+            return (
+              <div key={section.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50/60">
+                  <div className="flex items-center gap-2">
+                    <SectionIcon size={15} className="text-gray-400" />
+                    <span className="text-sm font-semibold text-gray-800">{section.label}</span>
+                  </div>
+                  <button onClick={() => toggleNav(`section:${section.id}`)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${sectionHidden ? 'bg-gray-100 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {sectionHidden ? 'Hidden' : 'Shown'}
+                  </button>
+                </div>
+                {!sectionHidden && (
+                  <div className="divide-y divide-gray-50">
+                    {section.items.map((item) => {
+                      const itemHidden = hiddenNav.has(item.to);
+                      return (
+                        <div key={item.to} className="flex items-center justify-between gap-2 px-3 py-2 pl-9">
+                          <div className="flex items-center gap-2"><item.icon size={14} className="text-gray-400" /><span className={`text-sm ${itemHidden ? 'text-gray-400' : 'text-gray-700'}`}>{item.label}</span></div>
+                          <button onClick={() => toggleNav(item.to)} className="btn-ghost p-1" aria-label={itemHidden ? 'Show' : 'Hide'}>
+                            {itemHidden ? <EyeOff size={16} className="text-gray-400" /> : <Eye size={16} className="text-emerald-600" />}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 

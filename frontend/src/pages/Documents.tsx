@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { FileText, Plus, Pencil, Trash2, AlertTriangle, Hash } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { FileText, Plus, Pencil, Trash2, AlertTriangle, Hash, Paperclip, Download, X } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
 import {
@@ -19,15 +19,27 @@ interface DocForm {
   reference: string;
   expires_at: string;
   notes: string;
+  file_data: string;
+  file_name: string;
 }
 
-const emptyDoc = (): DocForm => ({ name: '', category: 'identity', reference: '', expires_at: '', notes: '' });
+const emptyDoc = (): DocForm => ({ name: '', category: 'identity', reference: '', expires_at: '', notes: '', file_data: '', file_name: '' });
 
 export default function Documents() {
   const { data: documents, loading, refresh } = useAsync(() => api.documents(), []);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<DocForm>(emptyDoc());
   const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { alert('Please choose a file under 8 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, file_data: String(reader.result), file_name: file.name }));
+    reader.readAsDataURL(file);
+  };
 
   const docList: DocItem[] = documents || [];
 
@@ -52,6 +64,7 @@ export default function Documents() {
     setForm({
       id: d.id, name: d.name, category: d.category || 'other',
       reference: d.reference || '', expires_at: d.expires_at || '', notes: d.notes || '',
+      file_data: d.file_data || '', file_name: d.file_name || '',
     });
     setModalOpen(true);
   };
@@ -65,6 +78,8 @@ export default function Documents() {
       reference: form.reference.trim(),
       expires_at: form.expires_at || null,
       notes: form.notes.trim(),
+      file_data: form.file_data || null,
+      file_name: form.file_name || null,
     };
     try {
       if (form.id) await api.updateDocument(form.id, body);
@@ -107,7 +122,7 @@ export default function Documents() {
       </div>
 
       <p className="text-xs text-gray-500">
-        HartHome stores document details and reminders, not the files themselves.
+        Store document details, renewal reminders, and attach a file (PDF or photo) from your computer.
       </p>
 
       {docList.length === 0 ? (
@@ -144,6 +159,12 @@ export default function Documents() {
                       </p>
                     )}
                     {d.notes && <p className="text-xs text-gray-400">{d.notes}</p>}
+                    {d.file_data && (
+                      <a href={d.file_data} download={d.file_name || d.name} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium mt-1 w-fit" style={{ color: 'var(--accent)' }}>
+                        <Download size={12} /> {d.file_name || 'Open file'}
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -186,6 +207,19 @@ export default function Documents() {
         </Field>
         <Field label="Notes">
           <Textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </Field>
+        <Field label="Attached file" hint="PDF or photo from your computer, up to 8 MB.">
+          <input ref={fileRef} type="file" className="hidden" onChange={pickFile} />
+          {form.file_data ? (
+            <div className="flex items-center gap-2 p-2 rounded-xl border border-gray-200">
+              <Paperclip size={15} className="text-gray-400 flex-shrink-0" />
+              <span className="text-sm text-gray-700 truncate flex-1">{form.file_name || 'Attached file'}</span>
+              <a href={form.file_data} download={form.file_name} target="_blank" rel="noreferrer" className="btn-ghost p-1.5" title="Preview"><Download size={15} /></a>
+              <button className="btn-ghost p-1.5 text-red-500" onClick={() => setForm({ ...form, file_data: '', file_name: '' })} aria-label="Remove file"><X size={15} /></button>
+            </div>
+          ) : (
+            <button type="button" className="btn-secondary w-full" onClick={() => fileRef.current?.click()}><Paperclip size={15} /> Choose a file…</button>
+          )}
         </Field>
       </Modal>
     </div>

@@ -87,7 +87,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '15mb' })); // headroom for document/wallpaper uploads (data URLs)
 
 app.use('/api/auth/login',  authLimiter);
 app.use('/api/auth/signup', authLimiter);
