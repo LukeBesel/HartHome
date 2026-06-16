@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Settings, ChevronLeft, ChevronRight, LogOut, ChevronDown,
-  Menu, X, Moon, Sun, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon, Palette,
+  Menu, X, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -29,7 +29,8 @@ export default function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const { user, logout, isParent } = useAuth();
-  const { dark, toggleDark } = useTheme();
+  const { prefs } = useTheme();
+  const hidden = new Set(prefs.nav?.hidden || []);
   const navigate = useNavigate();
   const location = useLocation();
   const isDesktop = useIsDesktop();
@@ -40,7 +41,7 @@ export default function Layout() {
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
-  const canShow = (item: NavItem) => !item.parentOnly || isParent;
+  const canShow = (item: NavItem) => (!item.parentOnly || isParent) && !hidden.has(item.to);
   const sidebarW = eff ? 'w-16' : (isDesktop ? 'w-60' : 'w-72');
 
   const renderItem = (item: NavItem) => {
@@ -82,6 +83,7 @@ export default function Layout() {
 
         <nav className="flex-1 p-2.5 overflow-y-auto space-y-4 mt-1">
           {SECTIONS.map(section => {
+            if (hidden.has(`section:${section.id}`)) return null;
             const items = section.items.filter(canShow);
             if (!items.length) return null;
             return (
@@ -98,15 +100,6 @@ export default function Layout() {
             className={`flex items-center rounded-xl text-sm font-medium text-indigo-200 hover:text-white hover:bg-white/10 transition-all ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             <MonitorPlay size={17} className="flex-shrink-0" />{!eff && <span>Display mode</span>}
           </Link>
-          <NavLink to="/appearance" title="Personalize"
-            className={({ isActive }) => `flex items-center rounded-xl text-sm font-medium transition-all ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'} ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}
-            style={({ isActive }) => isActive ? { backgroundColor: 'var(--nav-active)' } : {}}>
-            <Palette size={17} className="flex-shrink-0" />{!eff && <span>Personalize</span>}
-          </NavLink>
-          <button onClick={toggleDark} title="Toggle theme"
-            className={`flex items-center rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-all w-full ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
-            {dark ? <Sun size={17} /> : <Moon size={17} />}{!eff && <span>{dark ? 'Light mode' : 'Dark mode'}</span>}
-          </button>
           <button onClick={() => setCollapsed(c => !c)}
             className={`hidden lg:flex items-center rounded-xl text-sm font-medium text-gray-500 hover:text-white hover:bg-white/10 transition-all w-full ${collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             {collapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /><span>Collapse</span></>}

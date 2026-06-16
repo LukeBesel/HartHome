@@ -100,7 +100,7 @@ export interface Contact {
   phone: string; email: string; address: string; notes: string;
 }
 export interface Note { id: string; title: string; body: string; color: string; pinned: number; author_id?: string | null; updated_at: string; }
-export interface DocItem { id: string; name: string; category: string; reference: string; expires_at?: string | null; notes: string; }
+export interface DocItem { id: string; name: string; category: string; reference: string; expires_at?: string | null; notes: string; file_data?: string | null; file_name?: string | null; }
 export interface Device { id: string; name: string; type: string; pairing_code: string; widgets: string; rotate_seconds: number; }
 export interface Announcement { id: string; body: string; author_id?: string | null; author_name?: string; avatar_color?: string; created_at: string; }
 export interface ActivityItem { id: string; member_id?: string | null; member_name: string; type: string; message: string; created_at: string; }

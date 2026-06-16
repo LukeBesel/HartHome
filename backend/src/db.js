@@ -421,6 +421,13 @@ const userCols = db.prepare('PRAGMA table_info(users)').all().map(r => r.name);
 if (!userCols.includes('pin')) db.exec('ALTER TABLE users ADD COLUMN pin TEXT');
 if (!userCols.includes('preferences')) db.exec("ALTER TABLE users ADD COLUMN preferences TEXT DEFAULT '{}'");
 
+const docCols = db.prepare('PRAGMA table_info(documents)').all().map(r => r.name);
+if (!docCols.includes('file_data')) db.exec('ALTER TABLE documents ADD COLUMN file_data TEXT');
+if (!docCols.includes('file_name')) db.exec('ALTER TABLE documents ADD COLUMN file_name TEXT');
+
+const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r => r.name);
+if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
+
 module.exports = db;
 
 // Seed runs after export so the seed module can `require('./db')` cleanly.
