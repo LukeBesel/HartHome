@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff,
+  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
@@ -20,11 +20,25 @@ interface HouseholdForm { name: string; address: string; timezone: string; }
 interface DeviceForm { name: string; type: string; }
 
 export default function Settings() {
-  const { user, isParent } = useAuth();
+  const { user, isParent, refresh: refreshAuth } = useAuth();
   const { dark, toggleDark, prefs, setPrefs } = useTheme();
   const hiddenNav = new Set(prefs.nav?.hidden || []);
   const setHiddenNav = (next: Set<string>) => setPrefs({ nav: { ...prefs.nav, hidden: [...next] } });
   const toggleNav = (key: string) => { const n = new Set(hiddenNav); n.has(key) ? n.delete(key) : n.add(key); setHiddenNav(n); };
+
+  // Financial passcode (locks Bills & Budget for kids).
+  const [finPin, setFinPin] = useState('');
+  const [finBusy, setFinBusy] = useState(false);
+  const setFinancePin = async (clear: boolean) => {
+    setFinBusy(true);
+    try {
+      await api.setFinancePin(clear ? null : finPin);
+      setFinPin('');
+      sessionStorage.setItem('hh_finance_ok', '1'); // the parent who set it is unlocked now
+      await Promise.all([refreshHousehold(), refreshAuth()]);
+    } catch (e: any) { alert(e.message || 'Could not update passcode'); }
+    finally { setFinBusy(false); }
+  };
   const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
   const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
 
@@ -247,6 +261,39 @@ export default function Settings() {
             );
           })}
         </div>
+      </section>
+
+      {/* Family finances lock */}
+      <section className="card p-5 sm:p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, var(--accent), var(--secondary))' }}><Lock size={18} /></span>
+          <div>
+            <h2 className="font-bold text-gray-900">Family finances lock</h2>
+            <p className="text-sm text-gray-500">Set a passcode so parents can open Bills &amp; Budget but kids can't.</p>
+          </div>
+        </div>
+        {!isParent ? (
+          <p className="text-sm text-gray-500">{household?.finance_locked ? 'Finances are passcode-protected.' : 'No passcode set.'} Ask a parent to manage this.</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 text-sm">
+              <span className={`badge ${household?.finance_locked ? 'badge-green' : 'badge-gray'}`}>{household?.finance_locked ? 'Locked' : 'Off'}</span>
+              <span className="text-gray-500">{household?.finance_locked ? 'Bills & Budget require the passcode.' : 'Anyone in the household can open finances.'}</span>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label={household?.finance_locked ? 'New passcode' : 'Set a passcode'} hint="At least 4 digits.">
+                <Input inputMode="numeric" type="password" value={finPin} placeholder="••••"
+                  onChange={(e) => setFinPin(e.target.value.replace(/\D/g, '').slice(0, 12))} className="w-40" />
+              </Field>
+              <button className="btn-primary" disabled={finBusy || finPin.length < 4} onClick={() => setFinancePin(false)}>
+                {household?.finance_locked ? 'Update' : 'Enable lock'}
+              </button>
+              {household?.finance_locked && (
+                <button className="btn-ghost text-red-600" disabled={finBusy} onClick={() => setFinancePin(true)}>Turn off</button>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
       {/* Your account */}

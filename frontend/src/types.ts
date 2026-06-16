@@ -21,6 +21,7 @@ export interface Household {
   accent: string;
   address: string;
   invite_code: string;
+  finance_locked?: boolean;
 }
 
 export interface EventItem {

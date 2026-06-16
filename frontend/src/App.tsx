@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/shared/Layout';
+import FinanceGate from './components/shared/FinanceGate';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -70,8 +71,8 @@ export default function App() {
                 <Route path="/notes" element={<Notes />} />
                 <Route path="/photos" element={<Photos />} />
                 <Route path="/members" element={<Members />} />
-                <Route path="/bills" element={<Bills />} />
-                <Route path="/budget" element={<Budget />} />
+                <Route path="/bills" element={<FinanceGate><Bills /></FinanceGate>} />
+                <Route path="/budget" element={<FinanceGate><Budget /></FinanceGate>} />
                 <Route path="/utilities" element={<Utilities />} />
                 <Route path="/assets" element={<Assets />} />
                 <Route path="/contacts" element={<Contacts />} />
