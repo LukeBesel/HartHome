@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Home, Settings, ChevronLeft, ChevronRight, LogOut, ChevronDown,
-  Menu, X, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon,
+  Menu, X, MonitorPlay, Sparkles, PlayCircle, Users as UsersIcon, HeartPulse,
 } from 'lucide-react';
+import { openHartCare } from '../../api/hartcare';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { SECTIONS, NavItem } from '../../config/navigation';
@@ -100,6 +101,12 @@ export default function Layout() {
             className={`flex items-center rounded-xl text-sm font-medium text-indigo-200 hover:text-white hover:bg-white/10 transition-all ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             <MonitorPlay size={17} className="flex-shrink-0" />{!eff && <span>Display mode</span>}
           </Link>
+          {user?.household?.hartcare_url && (
+            <button onClick={() => openHartCare(user.household?.hartcare_url)} title="Open HartCare"
+              className={`flex items-center rounded-xl text-sm font-medium text-rose-200 hover:text-white hover:bg-white/10 transition-all w-full ${eff ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
+              <HeartPulse size={17} className="flex-shrink-0" />{!eff && <span>HartCare</span>}
+            </button>
+          )}
           <button onClick={() => setCollapsed(c => !c)}
             className={`hidden lg:flex items-center rounded-xl text-sm font-medium text-gray-500 hover:text-white hover:bg-white/10 transition-all w-full ${collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'}`}>
             {collapsed ? <ChevronRight size={16} /> : <><ChevronLeft size={16} /><span>Collapse</span></>}

@@ -86,12 +86,13 @@ router.get('/household/info', (req, res) => {
 });
 
 router.put('/household/info', requireRole('parent'), (req, res) => {
-  const { name, timezone, accent, address } = req.body;
+  const { name, timezone, accent, address, hartcare_url } = req.body;
   const sets = [], vals = [];
   if (name !== undefined) { sets.push('name = ?'); vals.push(name); }
   if (timezone !== undefined) { sets.push('timezone = ?'); vals.push(timezone); }
   if (accent !== undefined) { sets.push('accent = ?'); vals.push(accent); }
   if (address !== undefined) { sets.push('address = ?'); vals.push(address); }
+  if (hartcare_url !== undefined) { sets.push('hartcare_url = ?'); vals.push(String(hartcare_url).trim()); }
   if (sets.length) { vals.push(req.householdId); db.prepare(`UPDATE households SET ${sets.join(', ')} WHERE id = ?`).run(...vals); }
   res.json(publicHousehold(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId)));
 });

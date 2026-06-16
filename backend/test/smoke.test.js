@@ -166,6 +166,30 @@ test('financial passcode locks and never leaks the hash', async () => {
   } finally { server.close(); }
 });
 
+test('SSO hand-off issues a one-time token that verifies identity', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'SSO Home', displayName: 'Sam', email: `s${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+    const handoff = await api(server, '/api/sso/handoff', { method: 'POST', headers: auth });
+    assert.ok(handoff.body.token);
+
+    const v1 = await api(server, `/api/sso/verify?token=${handoff.body.token}`);
+    assert.equal(v1.status, 200);
+    assert.equal(v1.body.user.display_name, 'Sam');
+    assert.equal(v1.body.household.name, 'SSO Home');
+
+    // One-time use: a second verify must fail.
+    const v2 = await api(server, `/api/sso/verify?token=${handoff.body.token}`);
+    assert.equal(v2.status, 401);
+    const v3 = await api(server, '/api/sso/verify?token=garbage');
+    assert.equal(v3.status, 401);
+  } finally { server.close(); }
+});
+
 test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
   const server = await listen();
   try {

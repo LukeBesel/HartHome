@@ -427,6 +427,21 @@ if (!docCols.includes('file_name')) db.exec('ALTER TABLE documents ADD COLUMN fi
 
 const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r => r.name);
 if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
+if (!householdCols.includes('hartcare_url')) db.exec("ALTER TABLE households ADD COLUMN hartcare_url TEXT DEFAULT ''");
+
+// One-time SSO hand-off tokens for opening sister Hart apps (e.g. HartCare)
+// already signed-in with the same household.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sso_tokens (
+    id TEXT PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL,
+    household_id TEXT NOT NULL,
+    used INTEGER DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
 
 module.exports = db;
 
