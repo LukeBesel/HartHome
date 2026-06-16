@@ -133,6 +133,39 @@ test('per-user preferences round-trip and persist', async () => {
   } finally { server.close(); }
 });
 
+test('financial passcode locks and never leaks the hash', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Money Home', displayName: 'P', email: `m${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+
+    const info0 = await api(server, '/api/members/household/info', { headers: auth });
+    assert.equal(info0.body.finance_locked, false);
+    assert.equal(info0.body.finance_pin, undefined); // never exposed
+
+    const set = await api(server, '/api/members/household/finance-pin', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: '2580' }),
+    });
+    assert.equal(set.body.finance_locked, true);
+
+    const bad = await api(server, '/api/members/household/finance-unlock', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: '0000' }),
+    });
+    assert.equal(bad.status, 403);
+    const ok = await api(server, '/api/members/household/finance-unlock', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: '2580' }),
+    });
+    assert.equal(ok.status, 200);
+
+    const me = await api(server, '/api/auth/me', { headers: auth });
+    assert.equal(me.body.household.finance_pin, undefined);
+    assert.equal(me.body.household.finance_locked, true);
+  } finally { server.close(); }
+});
+
 test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
   const server = await listen();
   try {

@@ -170,7 +170,9 @@ router.post('/set-pin', requireAuth, (req, res) => {
 // ─── Current user + household ─────────────────────────────────────────────────
 router.get('/me', requireAuth, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-  const household = db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId);
+  const row = db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId);
+  // Strip the finance passcode hash; expose only a locked flag.
+  const household = row ? (({ finance_pin, ...rest }) => ({ ...rest, finance_locked: !!finance_pin }))(row) : row;
   res.json({ ...publicUser(user), household_name: household?.name, household });
 });
 

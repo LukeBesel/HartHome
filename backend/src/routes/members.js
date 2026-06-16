@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
-const { hashPassword, requireRole } = require('../middleware/auth');
+const { hashPassword, verifyPassword, requireRole } = require('../middleware/auth');
 const { AVATAR_COLORS } = require('./auth');
 const { logActivity } = require('../helpers');
 
@@ -73,9 +73,16 @@ router.delete('/:id', requireRole('parent'), (req, res) => {
   res.json({ ok: true });
 });
 
+// Never leak the finance passcode hash to clients; expose a boolean instead.
+function publicHousehold(h) {
+  if (!h) return h;
+  const { finance_pin, ...rest } = h;
+  return { ...rest, finance_locked: !!finance_pin };
+}
+
 // ─── Household settings ───────────────────────────────────────────────────────
 router.get('/household/info', (req, res) => {
-  res.json(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId));
+  res.json(publicHousehold(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId)));
 });
 
 router.put('/household/info', requireRole('parent'), (req, res) => {
@@ -86,7 +93,30 @@ router.put('/household/info', requireRole('parent'), (req, res) => {
   if (accent !== undefined) { sets.push('accent = ?'); vals.push(accent); }
   if (address !== undefined) { sets.push('address = ?'); vals.push(address); }
   if (sets.length) { vals.push(req.householdId); db.prepare(`UPDATE households SET ${sets.join(', ')} WHERE id = ?`).run(...vals); }
-  res.json(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId));
+  res.json(publicHousehold(db.prepare('SELECT * FROM households WHERE id = ?').get(req.householdId)));
+});
+
+// ─── Financial passcode ───────────────────────────────────────────────────────
+// A parent sets a passcode that locks the money sections (Bills, Budget) so kids
+// can browse the rest of HartHome but can't open the family finances.
+router.post('/household/finance-pin', requireRole('parent'), (req, res) => {
+  const { pin } = req.body;
+  if (pin === null || pin === '') {
+    db.prepare('UPDATE households SET finance_pin = NULL WHERE id = ?').run(req.householdId);
+    return res.json({ finance_locked: false });
+  }
+  const clean = String(pin).replace(/\D/g, '').slice(0, 12);
+  if (clean.length < 4) return res.status(400).json({ error: 'Passcode must be at least 4 digits.' });
+  db.prepare('UPDATE households SET finance_pin = ? WHERE id = ?').run(hashPassword(clean), req.householdId);
+  res.json({ finance_locked: true });
+});
+
+// Verify the passcode to unlock the money sections for this session.
+router.post('/household/finance-unlock', (req, res) => {
+  const h = db.prepare('SELECT finance_pin FROM households WHERE id = ?').get(req.householdId);
+  if (!h?.finance_pin) return res.json({ ok: true }); // not locked
+  if (verifyPassword(String(req.body.pin || ''), h.finance_pin)) return res.json({ ok: true });
+  res.status(403).json({ error: 'Incorrect passcode', code: 'BAD_FINANCE_PIN' });
 });
 
 // ─── Per-user preferences (theme, dashboard layout, display config) ───────────
