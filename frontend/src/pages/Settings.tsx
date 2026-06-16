@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock,
+  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock, HeartPulse,
 } from 'lucide-react';
+import { openHartCare } from '../api/hartcare';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
 import {
@@ -26,6 +27,19 @@ export default function Settings() {
   const setHiddenNav = (next: Set<string>) => setPrefs({ nav: { ...prefs.nav, hidden: [...next] } });
   const toggleNav = (key: string) => { const n = new Set(hiddenNav); n.has(key) ? n.delete(key) : n.add(key); setHiddenNav(n); };
 
+  const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
+  const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
+
+  // HartCare connection (sister wellness app).
+  const [hcUrl, setHcUrl] = useState('');
+  const [hcSaved, setHcSaved] = useState(false);
+  useEffect(() => { if (household) setHcUrl(household.hartcare_url || ''); }, [household]);
+  const saveHartCare = async () => {
+    await api.updateHousehold({ hartcare_url: hcUrl.trim() });
+    await refreshHousehold();
+    setHcSaved(true); setTimeout(() => setHcSaved(false), 1500);
+  };
+
   // Financial passcode (locks Bills & Budget for kids).
   const [finPin, setFinPin] = useState('');
   const [finBusy, setFinBusy] = useState(false);
@@ -39,8 +53,6 @@ export default function Settings() {
     } catch (e: any) { alert(e.message || 'Could not update passcode'); }
     finally { setFinBusy(false); }
   };
-  const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
-  const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
 
   const [hhForm, setHhForm] = useState<HouseholdForm>({ name: '', address: '', timezone: '' });
   const [hhSaving, setHhSaving] = useState(false);
@@ -261,6 +273,31 @@ export default function Settings() {
             );
           })}
         </div>
+      </section>
+
+      {/* Connected apps — HartCare */}
+      <section className="card p-5 sm:p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, #f43f5e, #f59e0b)' }}><HeartPulse size={18} /></span>
+          <div>
+            <h2 className="font-bold text-gray-900">HartCare</h2>
+            <p className="text-sm text-gray-500">Connect your family's health &amp; wellness app. Open it already signed-in with this household.</p>
+          </div>
+        </div>
+        {isParent ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="HartCare URL" hint="e.g. https://hartcare.up.railway.app">
+              <Input value={hcUrl} placeholder="https://…" onChange={(e) => setHcUrl(e.target.value)} className="w-64" />
+            </Field>
+            <button className="btn-primary" onClick={saveHartCare}>Save</button>
+            {hcSaved && <span className="text-sm text-emerald-600">Saved</span>}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">{household?.hartcare_url ? 'HartCare is connected.' : 'Not connected yet — ask a parent.'}</p>
+        )}
+        {household?.hartcare_url && (
+          <button className="btn-secondary" onClick={() => openHartCare(household.hartcare_url)}><ExternalLink size={15} /> Open HartCare</button>
+        )}
       </section>
 
       {/* Family finances lock */}

@@ -77,6 +77,7 @@ export const api = {
   regenerateInvite: () => post<{ invite_code: string }>('/members/household/regenerate-invite'),
   setFinancePin: (pin: string | null) => post<{ finance_locked: boolean }>('/members/household/finance-pin', { pin }),
   unlockFinance: (pin: string) => post<{ ok: boolean }>('/members/household/finance-unlock', { pin }),
+  ssoHandoff: () => post<{ token: string; hartcare_url: string }>('/sso/handoff'),
   getPrefs: () => get<Prefs>('/members/me/prefs'),
   savePrefs: (prefs: Prefs) => put<Prefs>('/members/me/prefs', prefs),
   themes: () => get<SavedTheme[]>('/themes'),

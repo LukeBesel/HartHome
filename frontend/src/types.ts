@@ -22,6 +22,7 @@ export interface Household {
   address: string;
   invite_code: string;
   finance_locked?: boolean;
+  hartcare_url?: string;
 }
 
 export interface EventItem {

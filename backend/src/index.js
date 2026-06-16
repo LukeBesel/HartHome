@@ -33,6 +33,7 @@ const devicesRouter      = require('./routes/devices');
 const announcementsRouter = require('./routes/announcements');
 const photosRouter       = require('./routes/photos');
 const remindersRouter    = require('./routes/reminders');
+const { router: ssoRouter, verify: ssoVerify } = require('./routes/sso');
 const themesRouter       = require('./routes/themes');
 
 // ─── Startup validation ─────────────────────────────────────────────────────
@@ -96,6 +97,10 @@ app.use('/api', generalLimiter);
 
 app.use('/api/auth', authRouter);            // public
 
+// ─── Cross-app SSO verify (public, CORS-open for sister Hart apps) ────────────
+app.options('/api/sso/verify', (_req, res) => res.set('Access-Control-Allow-Origin', '*').set('Access-Control-Allow-Methods', 'GET').end());
+app.get('/api/sso/verify', ssoVerify);
+
 // ─── Live updates (Server-Sent Events) ────────────────────────────────────────
 // EventSource can't send an Authorization header, so the session token comes in
 // as a query param. Pushes a tiny "changed" ping (scoped to the household) so
@@ -138,6 +143,7 @@ app.use('/api/devices',       devicesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/photos',        photosRouter);
 app.use('/api/reminders',     remindersRouter);
+app.use('/api/sso',           ssoRouter);
 app.use('/api/themes',        themesRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' }));

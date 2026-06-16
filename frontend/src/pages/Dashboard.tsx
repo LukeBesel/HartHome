@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import {
   CalendarDays, CheckSquare, Receipt, ShoppingCart, Target, Car, Gift,
   Cake, Megaphone, Activity as ActivityIcon, Wallet, ArrowRight, Send,
-  Image as ImageIcon, SlidersHorizontal, GripVertical, Settings2, Eye, EyeOff,
+  Image as ImageIcon, SlidersHorizontal, GripVertical, Settings2, Eye, EyeOff, HeartPulse, ExternalLink, Footprints, Moon as MoonIcon,
 } from 'lucide-react';
+import { useEffect } from 'react';
+import { openHartCare, fetchHartCareSummary, HartCareSummary } from '../api/hartcare';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -27,6 +29,7 @@ const WIDGETS: { id: string; label: string; span: string }[] = [
   { id: 'lists', label: 'Lists', span: 'lg:col-span-2' },
   { id: 'photos', label: 'Photos', span: 'lg:col-span-2' },
   { id: 'activity', label: 'Recent activity', span: 'lg:col-span-2' },
+  { id: 'hartcare', label: 'HartCare', span: 'lg:col-span-2' },
 ];
 const DEFAULT_ORDER: DashboardWidgetPref[] = WIDGETS.map(w => ({ id: w.id, enabled: true }));
 
@@ -217,6 +220,7 @@ export default function Dashboard() {
           )}
         </Section>
       );
+      case 'hartcare': return <HartCareTile url={user?.household?.hartcare_url} />;
       default: return null;
     }
   };
@@ -309,3 +313,39 @@ function Section({ title, icon: IconCmp, to, children }: { title: string; icon: 
   );
 }
 const Muted = ({ children }: { children: React.ReactNode }) => <p className="text-sm text-gray-400 py-2">{children}</p>;
+
+// Live HartCare tile — pulls a wellness summary if HartCare is connected and has
+// implemented the summary endpoint; otherwise degrades to a launch/connect card.
+function HartCareTile({ url }: { url?: string }) {
+  const [summary, setSummary] = useState<HartCareSummary | null>(null);
+  useEffect(() => { if (url) fetchHartCareSummary(url).then(setSummary).catch(() => {}); }, [url]);
+  return (
+    <div className="card p-4 sm:p-5 h-full" style={{ background: 'linear-gradient(135deg, rgba(244,63,94,0.06), rgba(245,158,11,0.06))' }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2"><HeartPulse size={16} className="text-rose-500" /><h2 className="font-semibold text-gray-800 text-sm">HartCare</h2></div>
+        {url && <button onClick={() => openHartCare(url)} className="text-xs font-medium text-rose-500 hover:text-rose-600 flex items-center gap-0.5">Open <ExternalLink size={12} /></button>}
+      </div>
+      {!url ? (
+        <div className="text-sm text-gray-500">Connect your family's wellness app in <Link to="/settings" className="font-medium" style={{ color: 'var(--accent)' }}>Settings</Link>.</div>
+      ) : summary ? (
+        <div className="space-y-2.5">
+          {summary.headline && <div className="text-sm text-gray-700">{summary.headline}</div>}
+          <div className="grid grid-cols-3 gap-2">
+            {summary.steps != null && <Metric icon={Footprints} label="steps" value={summary.steps.toLocaleString()} />}
+            {summary.activeMinutes != null && <Metric icon={HeartPulse} label="active min" value={String(summary.activeMinutes)} />}
+            {summary.sleepHours != null && <Metric icon={MoonIcon} label="sleep" value={`${summary.sleepHours}h`} />}
+          </div>
+          {summary.reminders?.length ? <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">{summary.reminders.slice(0, 3).map((r, i) => <li key={i}>{r}</li>)}</ul> : null}
+        </div>
+      ) : (
+        <div className="text-sm text-gray-500">
+          <p>Your family wellness hub.</p>
+          <button onClick={() => openHartCare(url)} className="btn-secondary mt-3"><ExternalLink size={15} /> Open HartCare</button>
+        </div>
+      )}
+    </div>
+  );
+}
+function Metric({ icon: I, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return <div className="rounded-xl bg-white/70 border border-gray-100 p-2 text-center"><I size={14} className="mx-auto text-rose-500" /><div className="text-base font-bold text-gray-900 mt-0.5">{value}</div><div className="text-[10px] text-gray-400">{label}</div></div>;
+}
