@@ -441,6 +441,16 @@ db.exec(`
     expires_at TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS integration_links (
+    id TEXT PRIMARY KEY,
+    token TEXT NOT NULL UNIQUE,
+    household_id TEXT NOT NULL,
+    user_id TEXT,
+    app TEXT DEFAULT 'hartcare',
+    last_used TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 module.exports = db;

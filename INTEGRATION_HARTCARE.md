@@ -68,6 +68,26 @@ HartHome's verify endpoint, then return today's wellness snapshot:
 All fields optional — the HartHome tile renders whatever it gets. Add the
 HartHome origin to HartCare's CORS allow-list for this route.
 
+## 5. Two-way: read HartHome data from HartCare
+
+When HartCare verifies a hand-off token, the response now also includes a
+**long-lived `link_token`**. Store it against the HartCare family. Use it to pull
+HartHome household context so HartCare can show the shared family + calendar:
+
+```ts
+// Persist link_token from the /sso/verify response, then:
+const ctx = await fetch(`${HARTHOME_URL}/api/integrations/context`, {
+  headers: { 'X-HartLink': link_token },
+}).then(r => r.json());
+// → { household:{id,name},
+//     members:[{id,display_name,avatar_color,role,birthday}],
+//     events:{ today:[…], upcoming:[…] } }
+```
+
+This endpoint is **read-only**, CORS-open, and scoped to the household by the
+link token. It's the inbound half of the bridge; `/api/summary` (step 4) is the
+outbound half that feeds the HartHome dashboard tile.
+
 ## Security notes
 - The hand-off token is the credential — it's random, single-use, 3-minute TTL,
   and HartHome never exposes session tokens or password/finance-PIN hashes.
