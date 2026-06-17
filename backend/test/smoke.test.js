@@ -182,6 +182,15 @@ test('SSO hand-off issues a one-time token that verifies identity', async () => 
     assert.equal(v1.body.user.display_name, 'Sam');
     assert.equal(v1.body.household.name, 'SSO Home');
 
+    // Verify also issues a long-lived link token for the two-way bridge.
+    assert.ok(v1.body.link_token);
+    const ctx = await api(server, '/api/integrations/context', { headers: { 'X-HartLink': v1.body.link_token } });
+    assert.equal(ctx.status, 200);
+    assert.equal(ctx.body.household.name, 'SSO Home');
+    assert.ok(Array.isArray(ctx.body.members));
+    const badLink = await api(server, '/api/integrations/context', { headers: { 'X-HartLink': 'nope' } });
+    assert.equal(badLink.status, 401);
+
     // One-time use: a second verify must fail.
     const v2 = await api(server, `/api/sso/verify?token=${handoff.body.token}`);
     assert.equal(v2.status, 401);

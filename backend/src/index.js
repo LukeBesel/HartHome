@@ -33,7 +33,8 @@ const devicesRouter      = require('./routes/devices');
 const announcementsRouter = require('./routes/announcements');
 const photosRouter       = require('./routes/photos');
 const remindersRouter    = require('./routes/reminders');
-const { router: ssoRouter, verify: ssoVerify } = require('./routes/sso');
+const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
+const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
 
 // ─── Startup validation ─────────────────────────────────────────────────────
@@ -100,6 +101,10 @@ app.use('/api/auth', authRouter);            // public
 // ─── Cross-app SSO verify (public, CORS-open for sister Hart apps) ────────────
 app.options('/api/sso/verify', (_req, res) => res.set('Access-Control-Allow-Origin', '*').set('Access-Control-Allow-Methods', 'GET').end());
 app.get('/api/sso/verify', ssoVerify);
+
+// Read API for connected sister apps — authenticated by an integration link
+// token (not a session), CORS-open so HartCare can call it.
+app.use('/api/integrations', linkAuth, integrationsRouter);
 
 // ─── Live updates (Server-Sent Events) ────────────────────────────────────────
 // EventSource can't send an Authorization header, so the session token comes in
