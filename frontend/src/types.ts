@@ -29,7 +29,9 @@ export interface EventItem {
   id: string; title: string; description: string; location: string;
   start_at: string; end_at?: string | null; all_day: number;
   member_id?: string | null; color: string; category: string; recurrence: string;
+  feed_id?: string | null;
 }
+export interface CalendarFeed { id: string; member_id?: string | null; name: string; url: string; color: string; last_synced?: string | null; last_count: number; last_error: string; }
 
 export interface Chore {
   id: string; title: string; description: string; assignee_id?: string | null;

@@ -3,7 +3,7 @@ import type {
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
   Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
   RemindersResponse, Prefs, SavedTheme,
-  HealthMember, HealthLog, HealthGoal, HealthSummary, HealthChallenge,
+  HealthMember, HealthLog, HealthGoal, HealthSummary, HealthChallenge, CalendarFeed,
 } from '../types';
 
 const BASE = '/api';
@@ -100,6 +100,10 @@ export const api = {
   // ── Events ──
   events: (params?: Record<string, any>) => get<EventItem[]>('/events', params),
   createEvent: (b: Partial<EventItem>) => post<EventItem>('/events', b),
+  calendarFeeds: () => get<CalendarFeed[]>('/calendar-feeds'),
+  addCalendarFeed: (b: { name: string; url: string; color?: string; member_id?: string }) => post<{ feed: CalendarFeed; ok: boolean; count?: number; error?: string }>('/calendar-feeds', b),
+  syncCalendarFeed: (id: string) => post<{ feed: CalendarFeed; ok: boolean; count?: number; error?: string }>(`/calendar-feeds/${id}/sync`),
+  deleteCalendarFeed: (id: string) => del(`/calendar-feeds/${id}`),
   updateEvent: (id: string, b: Partial<EventItem>) => put<EventItem>(`/events/${id}`, b),
   deleteEvent: (id: string) => del(`/events/${id}`),
 

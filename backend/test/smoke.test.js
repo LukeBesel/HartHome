@@ -166,6 +166,33 @@ test('financial passcode locks and never leaks the hash', async () => {
   } finally { server.close(); }
 });
 
+test('calendar feed subscription imports ICS events', async () => {
+  const http = require('node:http');
+  const ICS = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nSUMMARY:Imported Practice\r\nDTSTART:20260701T160000Z\r\nDTEND:20260701T170000Z\r\nLOCATION:Field 3\r\nEND:VEVENT\r\nEND:VCALENDAR';
+  const icsServer = await new Promise((resolve) => {
+    const srv = http.createServer((_q, s) => { s.setHeader('content-type', 'text/calendar'); s.end(ICS); }).listen(0, () => resolve(srv));
+  });
+  const icsUrl = `http://127.0.0.1:${icsServer.address().port}/cal.ics`;
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Feed Home', displayName: 'F', email: `f${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+    const add = await api(server, '/api/calendar-feeds', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Test', url: icsUrl }),
+    });
+    assert.equal(add.status, 201);
+    assert.equal(add.body.ok, true);
+    assert.equal(add.body.count, 1);
+    const events = await api(server, '/api/events', { headers: auth });
+    const imported = events.body.filter((e) => e.feed_id);
+    assert.equal(imported.length, 1);
+    assert.equal(imported[0].title, 'Imported Practice');
+  } finally { server.close(); icsServer.close(); }
+});
+
 test('health module logs metrics and enforces privacy', async () => {
   const server = await listen();
   try {
