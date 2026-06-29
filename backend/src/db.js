@@ -428,6 +428,25 @@ if (!docCols.includes('file_name')) db.exec('ALTER TABLE documents ADD COLUMN fi
 const choreCols = db.prepare('PRAGMA table_info(chores)').all().map(r => r.name);
 if (!choreCols.includes('rotation')) db.exec("ALTER TABLE chores ADD COLUMN rotation TEXT DEFAULT ''");
 
+// External calendar feeds (iCal/ICS subscriptions) — events carry a feed_id so
+// a re-sync can cleanly replace just that feed's imported events.
+const eventCols = db.prepare('PRAGMA table_info(events)').all().map(r => r.name);
+if (!eventCols.includes('feed_id')) db.exec('ALTER TABLE events ADD COLUMN feed_id TEXT');
+db.exec(`
+  CREATE TABLE IF NOT EXISTS calendar_feeds (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    member_id TEXT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    color TEXT DEFAULT '#6366f1',
+    last_synced TEXT,
+    last_count INTEGER DEFAULT 0,
+    last_error TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // Health privacy: 'private' (only the member), 'parents', or 'household'.
 if (!userCols.includes('health_share')) db.exec("ALTER TABLE users ADD COLUMN health_share TEXT DEFAULT 'private'");
 

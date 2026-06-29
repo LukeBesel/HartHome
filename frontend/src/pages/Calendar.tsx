@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Clock, MapPin,
+  CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Clock, MapPin, Rss, RefreshCw,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
 import { useLiveRefresh } from '../api/live';
 import { PageHeader, Spinner, Modal, Field, Input, Select, Segmented, Avatar } from '../components/shared/ui';
-import { fmtTime, toLocalInput, memberById } from '../utils/format';
+import { fmtTime, fmtDate, toLocalInput, memberById } from '../utils/format';
 import type { EventItem, User } from '../types';
 
 const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444'];
@@ -102,6 +102,7 @@ export default function Calendar() {
   const [form, setForm] = useState<Form>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [drag, setDrag] = useState<{ id: string; day: string } | null>(null);
+  const [feedsOpen, setFeedsOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Drag an event onto another day to reschedule it (shifts the series anchor).
@@ -214,6 +215,7 @@ export default function Calendar() {
         actions={
           <>
             <input ref={fileRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={importICS} />
+            <button className="btn-secondary" onClick={() => setFeedsOpen(true)} title="Subscribe to Google/Outlook/Apple calendars"><Rss size={16} /> Subscribe</button>
             <button className="btn-secondary" onClick={() => fileRef.current?.click()} title="Import an .ics file (Google/Apple export)"><Upload size={16} /> Import</button>
             <button className="btn-primary" onClick={() => openCreate()}><Plus size={16} /> New event</button>
           </>
@@ -305,7 +307,64 @@ export default function Calendar() {
           </Field>
         </div>
       </Modal>
+
+      {feedsOpen && <FeedsModal members={ms} onClose={() => setFeedsOpen(false)} onChange={refresh} />}
     </div>
+  );
+}
+
+function FeedsModal({ members, onClose, onChange }: { members: User[]; onClose: () => void; onChange: () => void }) {
+  const { data: feeds, refresh } = useAsync(() => api.calendarFeeds(), []);
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const [color, setColor] = useState(COLORS[2]);
+  const [memberId, setMemberId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const add = async () => {
+    if (!url.trim()) return;
+    setBusy(true); setMsg('');
+    try {
+      const r = await api.addCalendarFeed({ name: name.trim() || 'Calendar', url: url.trim(), color, member_id: memberId || undefined });
+      setName(''); setUrl('');
+      setMsg(r.ok ? `Imported ${r.count} events.` : `Couldn't read that feed: ${r.error || 'error'}`);
+      await refresh(); onChange();
+    } finally { setBusy(false); }
+  };
+  const sync = async (id: string) => { setBusy(true); try { await api.syncCalendarFeed(id); await refresh(); onChange(); } finally { setBusy(false); } };
+  const remove = async (id: string) => { if (!window.confirm('Remove this calendar and its imported events?')) return; await api.deleteCalendarFeed(id); await refresh(); onChange(); };
+
+  return (
+    <Modal open title="Subscribe to a calendar" onClose={onClose}
+      footer={<button className="btn-secondary" onClick={onClose}>Done</button>} wide>
+      <p className="text-sm text-gray-500">Paste the <strong>secret iCal address</strong> from Google Calendar, Outlook/Microsoft 365, or Apple iCloud. HartHome keeps it in sync (refreshed automatically) and color-codes it.</p>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <Field label="Name"><Input value={name} placeholder="Mom's work" onChange={e => setName(e.target.value)} /></Field>
+        <Field label="Whose"><Select value={memberId} onChange={e => setMemberId(e.target.value)}><option value="">Whole family</option>{members.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}</Select></Field>
+      </div>
+      <Field label="iCal URL"><Input value={url} placeholder="https://calendar.google.com/…/basic.ics" onChange={e => setUrl(e.target.value)} /></Field>
+      <Field label="Color"><div className="flex flex-wrap gap-1.5 mt-1">{COLORS.map(c => <button key={c} type="button" onClick={() => setColor(c)} className={`w-7 h-7 rounded-full ${color === c ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`} style={{ backgroundColor: c }} />)}</div></Field>
+      <button className="btn-primary" onClick={add} disabled={busy || !url.trim()}>{busy ? 'Working…' : 'Add & sync'}</button>
+      {msg && <p className="text-sm text-gray-600">{msg}</p>}
+
+      {feeds && feeds.length > 0 && (
+        <div className="border-t border-gray-100 pt-3 mt-1 space-y-2">
+          <div className="section-label">Connected calendars</div>
+          {feeds.map(f => (
+            <div key={f.id} className="flex items-center gap-2 p-2 rounded-xl border border-gray-100">
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: f.color }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-gray-800 truncate">{f.name}</div>
+                <div className="text-[11px] text-gray-400 truncate">{f.last_error ? <span className="text-red-500">{f.last_error}</span> : `${f.last_count} events${f.last_synced ? ` · synced ${fmtDate(f.last_synced, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } as any)}` : ''}`}</div>
+              </div>
+              <button className="btn-ghost p-1.5" title="Sync now" onClick={() => sync(f.id)}><RefreshCw size={14} /></button>
+              <button className="btn-ghost p-1.5 text-red-500" title="Remove" onClick={() => remove(f.id)}><Trash2 size={14} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }
 

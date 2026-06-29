@@ -34,6 +34,7 @@ const announcementsRouter = require('./routes/announcements');
 const photosRouter       = require('./routes/photos');
 const remindersRouter    = require('./routes/reminders');
 const healthRouter       = require('./routes/health');
+const { router: calendarFeedsRouter, syncAll: syncAllFeeds } = require('./routes/calendar-feeds');
 const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
 const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
@@ -150,6 +151,7 @@ app.use('/api/announcements', announcementsRouter);
 app.use('/api/photos',        photosRouter);
 app.use('/api/reminders',     remindersRouter);
 app.use('/api/health',        healthRouter);
+app.use('/api/calendar-feeds', calendarFeedsRouter);
 app.use('/api/sso',           ssoRouter);
 app.use('/api/themes',        themesRouter);
 
@@ -185,6 +187,10 @@ app.use((err, req, res, _next) => {
 // test suite, the app is mounted on an ephemeral port instead.
 if (require.main === module) {
   const server = app.listen(PORT, () => console.log(`HartHome backend running on http://localhost:${PORT}`));
+
+  // Refresh subscribed external calendars periodically (and shortly after boot).
+  setTimeout(() => syncAllFeeds().catch(() => {}), 15_000).unref();
+  setInterval(() => syncAllFeeds().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 
   process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]', reason));
   process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
