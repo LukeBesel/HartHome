@@ -27,6 +27,14 @@ const config = {
   databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'harthome.db'),
 
   seedDemoData: SEED_DEMO_DATA,
+
+  // Google sign-in (OAuth). Set both to enable "Continue with Google". The
+  // authorized redirect URI to register is: <APP_URL>/api/auth/google/callback
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    get configured() { return !!(this.clientId && this.clientSecret); },
+  },
 };
 
 function validate() {

@@ -277,6 +277,17 @@ test('SSO hand-off issues a one-time token that verifies identity', async () => 
   } finally { server.close(); }
 });
 
+test('auth config reports google off and the route 503s when unconfigured', async () => {
+  const server = await listen();
+  try {
+    const cfg = await api(server, '/api/auth/config');
+    assert.equal(cfg.status, 200);
+    assert.equal(cfg.body.google, false); // no GOOGLE_CLIENT_ID in tests
+    const start = await api(server, '/api/auth/google', { redirect: 'manual' });
+    assert.equal(start.status, 503);
+  } finally { server.close(); }
+});
+
 test('demo sandbox spins up a fresh, fully-populated, isolated household', async () => {
   const server = await listen();
   try {

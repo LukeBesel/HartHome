@@ -57,6 +57,7 @@ export const api = {
   lookupInvite: (code: string) => get<{ household_name: string }>(`/auth/invite/${encodeURIComponent(code)}`),
   login: (email: string, password: string) => post<{ token: string; user: User }>('/auth/login', { email, password }),
   demo: () => post<{ token: string; user: User; demo: boolean }>('/auth/demo'),
+  authConfig: () => get<{ google: boolean }>('/auth/config'),
   profiles: () => get<(User & { has_pin: boolean })[]>('/auth/profiles'),
   setPin: (member_id: string | null, pin: string | null) => post<{ ok: boolean; has_pin: boolean }>('/auth/set-pin', { member_id, pin }),
   logout: () => post('/auth/logout'),
