@@ -108,6 +108,19 @@ export interface Device { id: string; name: string; type: string; pairing_code: 
 export interface Announcement { id: string; body: string; author_id?: string | null; author_name?: string; avatar_color?: string; created_at: string; }
 export interface ActivityItem { id: string; member_id?: string | null; member_name: string; type: string; message: string; created_at: string; }
 export interface Photo { id: string; url: string; caption: string; sort: number; created_at: string; }
+
+export type HealthShare = 'private' | 'parents' | 'household';
+export interface HealthMember { id: string; display_name: string; role: string; avatar_color: string; health_share: HealthShare; can_edit: boolean; is_self: boolean; }
+export interface HealthLog { id: string; member_id: string; type: string; value: number | null; text: string; unit: string; logged_at: string; }
+export interface HealthGoal { id: string; member_id: string; type: string; target: number; unit: string; period: string; }
+export interface HealthSummary {
+  member: { id: string; display_name: string; avatar_color: string; health_share: HealthShare; can_edit: boolean };
+  today: { water: number | null; steps: number | null; sleep: number | null; workout: number | null; mood: { text: string; value: number } | null };
+  weight: { value: number; unit: string; logged_at: string } | null;
+  goals: HealthGoal[];
+  trends: { weight: { d: string; v: number }[]; week: { d: string; type: string; s: number; m: number }[] };
+}
+export interface HealthChallenge { type: string; period: string; leaderboard: { id: string; display_name: string; avatar_color: string; total: number }[]; }
 export interface Reminder { id: string; type: string; icon: string; title: string; subtitle: string; severity: 'overdue' | 'today' | 'soon'; link: string; date: string; }
 export interface RemindersResponse { count: number; overdue: number; items: Reminder[]; }
 

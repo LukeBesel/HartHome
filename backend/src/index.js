@@ -33,6 +33,7 @@ const devicesRouter      = require('./routes/devices');
 const announcementsRouter = require('./routes/announcements');
 const photosRouter       = require('./routes/photos');
 const remindersRouter    = require('./routes/reminders');
+const healthRouter       = require('./routes/health');
 const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
 const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
@@ -148,6 +149,7 @@ app.use('/api/devices',       devicesRouter);
 app.use('/api/announcements', announcementsRouter);
 app.use('/api/photos',        photosRouter);
 app.use('/api/reminders',     remindersRouter);
+app.use('/api/health',        healthRouter);
 app.use('/api/sso',           ssoRouter);
 app.use('/api/themes',        themesRouter);
 

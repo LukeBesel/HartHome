@@ -166,6 +166,34 @@ test('financial passcode locks and never leaks the hash', async () => {
   } finally { server.close(); }
 });
 
+test('health module logs metrics and enforces privacy', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Well Home', displayName: 'Parent', email: `w${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+
+    // Log water twice + weight; summary aggregates.
+    for (let i = 0; i < 2; i++) await api(server, '/api/health/logs', { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'water', value: 1 }) });
+    await api(server, '/api/health/logs', { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'weight', value: 170 }) });
+    const sum = await api(server, '/api/health/summary', { headers: auth });
+    assert.equal(sum.body.today.water, 2);
+    assert.equal(sum.body.weight.value, 170);
+
+    // Add an adult member who keeps health private → owner can't view.
+    const adult = await api(server, '/api/members', { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: 'Partner', role: 'parent' }) });
+    const blocked = await api(server, `/api/health/summary?member_id=${adult.body.id}`, { headers: auth });
+    assert.equal(blocked.status, 403);
+
+    // A child is manageable by a parent → viewable.
+    const kid = await api(server, '/api/members', { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: 'Kid', role: 'child' }) });
+    const kidView = await api(server, `/api/health/summary?member_id=${kid.body.id}`, { headers: auth });
+    assert.equal(kidView.status, 200);
+  } finally { server.close(); }
+});
+
 test('rotating chore advances the assignee on completion', async () => {
   const server = await listen();
   try {

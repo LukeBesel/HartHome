@@ -2,7 +2,7 @@ import {
   LayoutDashboard, CalendarDays, CheckSquare, ListChecks, UtensilsCrossed,
   Target, Gift, Users, StickyNote,
   Receipt, Wallet, Zap,
-  Car, Phone, FileText, Trophy, Image,
+  Car, Phone, FileText, Trophy, Image, HeartPulse,
 } from 'lucide-react';
 
 export type NavItem = { to: string; icon: React.ElementType; label: string; exact?: boolean; parentOnly?: boolean };
@@ -23,6 +23,7 @@ export const SECTIONS: NavSection[] = [
     id: 'family', label: 'Family',
     items: [
       { to: '/goals', icon: Target, label: 'Goals' },
+      { to: '/health', icon: HeartPulse, label: 'Health' },
       { to: '/rewards', icon: Gift, label: 'Rewards' },
       { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
       { to: '/notes', icon: StickyNote, label: 'Notes & Bulletin' },
