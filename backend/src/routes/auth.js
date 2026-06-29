@@ -3,8 +3,73 @@ const { v4: uuid } = require('uuid');
 const db = require('../db');
 const { hashPassword, verifyPassword, generateToken, requireAuth } = require('../middleware/auth');
 const { seedHousehold } = require('../seed');
+const { config } = require('../config');
 
 const router = express.Router();
+
+// Public: which optional sign-in methods are live (drives the login UI).
+router.get('/config', (_req, res) => res.json({ google: config.google.configured }));
+
+// ─── Google sign-in (OAuth) ───────────────────────────────────────────────────
+// Activates automatically once GOOGLE_CLIENT_ID/SECRET are set. Register the
+// redirect URI <APP_URL>/api/auth/google/callback in the Google Cloud console.
+function baseUrl(req) {
+  return config.appUrl || `${req.protocol}://${req.get('host')}`;
+}
+router.get('/google', (req, res) => {
+  if (!config.google.configured) return res.status(503).json({ error: 'Google sign-in is not configured on this server.' });
+  const params = new URLSearchParams({
+    client_id: config.google.clientId,
+    redirect_uri: `${baseUrl(req)}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+  const fail = (msg) => res.redirect(`/login?error=${encodeURIComponent(msg || 'google')}`);
+  if (!config.google.configured || !req.query.code) return fail('google');
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: String(req.query.code),
+        client_id: config.google.clientId,
+        client_secret: config.google.clientSecret,
+        redirect_uri: `${baseUrl(req)}/api/auth/google/callback`,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tok = await tokenRes.json();
+    if (!tok.access_token) return fail('google');
+    const profRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: `Bearer ${tok.access_token}` } });
+    const prof = await profRes.json();
+    const email = (prof.email || '').toLowerCase();
+    if (!email) return fail('google');
+
+    let user = db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
+    if (!user) {
+      // First time → spin up a household with this person as owner.
+      const householdId = uuid(); const userId = uuid();
+      const name = prof.name || prof.given_name || email.split('@')[0];
+      db.transaction(() => {
+        db.prepare('INSERT INTO households (id, name, invite_code) VALUES (?,?,?)')
+          .run(householdId, `${(prof.given_name || name)}'s Home`, Math.random().toString(36).slice(2, 8).toUpperCase());
+        db.prepare(`INSERT INTO users (id, household_id, email, display_name, role, avatar_color) VALUES (?,?,?,?,'owner',?)`)
+          .run(userId, householdId, email, name, AVATAR_COLORS[0]);
+      })();
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    }
+    const token = createSession(user.id);
+    res.redirect(`/login?token=${token}`);
+  } catch (err) {
+    console.error('[google] callback failed:', err.message);
+    fail('google');
+  }
+});
 
 const SESSION_DAYS = 30;
 const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#10b981', '#f43f5e', '#3b82f6'];
