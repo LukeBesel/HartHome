@@ -40,9 +40,18 @@ router.post('/:id/complete', (req, res) => {
     }
 
     if (chore.recurrence && chore.recurrence !== 'once') {
+      // Rotating chore: hand the next turn to the next member in the rotation.
+      let nextAssignee = chore.assignee_id;
+      try {
+        const rota = JSON.parse(chore.rotation || '[]');
+        if (Array.isArray(rota) && rota.length > 1) {
+          const i = rota.indexOf(chore.assignee_id);
+          nextAssignee = rota[(i + 1) % rota.length];
+        }
+      } catch { /* malformed rotation */ }
       // Recurring chore: roll it forward and keep it on the board.
-      db.prepare(`UPDATE chores SET status='todo', last_completed_at=datetime('now'), due_date=?, updated_at=datetime('now') WHERE id=?`)
-        .run(nextDue(chore.recurrence, chore.due_date), chore.id);
+      db.prepare(`UPDATE chores SET status='todo', assignee_id=?, last_completed_at=datetime('now'), due_date=?, updated_at=datetime('now') WHERE id=?`)
+        .run(nextAssignee, nextDue(chore.recurrence, chore.due_date), chore.id);
     } else {
       db.prepare(`UPDATE chores SET status='done', last_completed_at=datetime('now'), updated_at=datetime('now') WHERE id=?`)
         .run(chore.id);
@@ -70,7 +79,7 @@ router.post('/:id/reopen', (req, res) => {
 // Standard CRUD for everything else.
 router.use(crudRouter({
   table: 'chores',
-  fields: ['title', 'description', 'assignee_id', 'points', 'recurrence', 'day_of_week', 'due_date', 'status', 'icon'],
+  fields: ['title', 'description', 'assignee_id', 'points', 'recurrence', 'day_of_week', 'due_date', 'status', 'icon', 'rotation'],
   filters: ['assignee_id', 'status'],
   orderBy: `status ASC, due_date IS NULL, due_date ASC, created_at DESC`,
   label: 'chore',

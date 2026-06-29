@@ -166,6 +166,29 @@ test('financial passcode locks and never leaks the hash', async () => {
   } finally { server.close(); }
 });
 
+test('rotating chore advances the assignee on completion', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Rota Home', displayName: 'A', email: `r${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}` };
+    const me = await api(server, '/api/auth/me', { headers: auth });
+    const kid = await api(server, '/api/members', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: 'Kid', role: 'child' }),
+    });
+    const a1 = me.body.id, a2 = kid.body.id;
+    const chore = await api(server, '/api/chores', {
+      method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Dishes', recurrence: 'weekly', assignee_id: a1, rotation: JSON.stringify([a1, a2]) }),
+    });
+    const done = await api(server, `/api/chores/${chore.body.id}/complete`, { method: 'POST', headers: auth });
+    assert.equal(done.status, 200);
+    assert.equal(done.body.chore.assignee_id, a2, 'assignee rotated to the next member');
+  } finally { server.close(); }
+});
+
 test('SSO hand-off issues a one-time token that verifies identity', async () => {
   const server = await listen();
   try {
