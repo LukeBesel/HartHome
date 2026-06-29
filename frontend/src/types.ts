@@ -35,6 +35,7 @@ export interface Chore {
   id: string; title: string; description: string; assignee_id?: string | null;
   points: number; recurrence: string; day_of_week?: number | null;
   due_date?: string | null; status: 'todo' | 'done'; last_completed_at?: string | null; icon: string;
+  rotation?: string;
 }
 
 export interface Goal {

@@ -425,6 +425,9 @@ const docCols = db.prepare('PRAGMA table_info(documents)').all().map(r => r.name
 if (!docCols.includes('file_data')) db.exec('ALTER TABLE documents ADD COLUMN file_data TEXT');
 if (!docCols.includes('file_name')) db.exec('ALTER TABLE documents ADD COLUMN file_name TEXT');
 
+const choreCols = db.prepare('PRAGMA table_info(chores)').all().map(r => r.name);
+if (!choreCols.includes('rotation')) db.exec("ALTER TABLE chores ADD COLUMN rotation TEXT DEFAULT ''");
+
 const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r => r.name);
 if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
 if (!householdCols.includes('hartcare_url')) db.exec("ALTER TABLE households ADD COLUMN hartcare_url TEXT DEFAULT ''");

@@ -101,7 +101,21 @@ export default function Calendar() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Form>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [drag, setDrag] = useState<{ id: string; day: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Drag an event onto another day to reschedule it (shifts the series anchor).
+  const shiftIso = (iso: string, days: number) => { const d = new Date(iso); d.setDate(d.getDate() + days); return d.toISOString(); };
+  const dropOn = async (target: Date) => {
+    const d = drag; setDrag(null);
+    if (!d) return;
+    const ev = (events || []).find(e => e.id === d.id);
+    if (!ev) return;
+    const delta = Math.round((Date.parse(ymd(target)) - Date.parse(d.day)) / 864e5);
+    if (!delta) return;
+    await api.updateEvent(ev.id, { start_at: shiftIso(ev.start_at, delta), end_at: ev.end_at ? shiftIso(ev.end_at, delta) : null });
+    await refresh();
+  };
 
   const ms = members || [];
 
@@ -223,13 +237,14 @@ export default function Calendar() {
             const list = dayMap[ymd(d)] || [];
             const isToday = sameDay(d, today);
             return (
-              <div key={ymd(d)} className="card p-2 min-h-[140px] flex flex-col">
+              <div key={ymd(d)} className="card p-2 min-h-[140px] flex flex-col"
+                onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(d)}>
                 <button onClick={() => openCreate(d)} className="text-left mb-2">
                   <div className="text-[11px] uppercase tracking-wide text-gray-400">{DOW[d.getDay()]}</div>
                   <div className={`text-lg font-bold ${isToday ? 'text-white w-7 h-7 rounded-full flex items-center justify-center' : 'text-gray-800'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
                 </button>
                 <div className="space-y-1 flex-1">
-                  {list.map(o => <EventPill key={o._key} o={o} onClick={() => openEdit(o)} />)}
+                  {list.map(o => <EventPill key={o._key} o={o} onClick={() => openEdit(o)} onDragStart={() => setDrag({ id: o.id, day: ymd(o._start) })} />)}
                 </div>
               </div>
             );
@@ -247,10 +262,11 @@ export default function Calendar() {
               const isToday = sameDay(d, today);
               return (
                 <button key={ymd(d)} onClick={() => openCreate(d)}
+                  onDragOver={(e) => e.preventDefault()} onDrop={() => dropOn(d)}
                   className={`text-left border-b border-r border-gray-100 min-h-[92px] p-1.5 align-top hover:bg-gray-50/60 transition-colors ${inMonth ? '' : 'bg-gray-50/40'}`}>
                   <div className={`text-xs font-semibold mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
                   <div className="space-y-0.5">
-                    {list.slice(0, 3).map(o => <EventPill key={o._key} o={o} onClick={(e) => { e.stopPropagation(); openEdit(o); }} />)}
+                    {list.slice(0, 3).map(o => <EventPill key={o._key} o={o} onClick={(e) => { e.stopPropagation(); openEdit(o); }} onDragStart={() => setDrag({ id: o.id, day: ymd(o._start) })} />)}
                     {list.length > 3 && <div className="text-[10px] text-gray-400 pl-1">+{list.length - 3} more</div>}
                   </div>
                 </button>
@@ -293,9 +309,12 @@ export default function Calendar() {
   );
 }
 
-function EventPill({ o, onClick }: { o: Occurrence; onClick: (e: React.MouseEvent) => void }) {
+function EventPill({ o, onClick, onDragStart }: { o: Occurrence; onClick: (e: React.MouseEvent) => void; onDragStart?: () => void }) {
   return (
-    <button onClick={onClick} className="w-full text-left px-1.5 py-0.5 rounded-md text-[11px] font-medium truncate flex items-center gap-1 hover:opacity-90"
+    <button onClick={onClick}
+      draggable={!!onDragStart}
+      onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
+      className="w-full text-left px-1.5 py-0.5 rounded-md text-[11px] font-medium truncate flex items-center gap-1 hover:opacity-90 cursor-grab active:cursor-grabbing"
       style={{ backgroundColor: `${o.color}22`, color: o.color }}>
       {!o.all_day && <span className="opacity-70">{fmtTime(o._start.toISOString())}</span>}
       <span className="truncate">{o.title}</span>

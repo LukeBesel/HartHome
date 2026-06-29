@@ -20,10 +20,11 @@ interface ChoreForm {
   recurrence: string;
   due_date: string;
   icon: string;
+  rotation: string[];
 }
 
 const blankForm = (): ChoreForm => ({
-  title: '', description: '', assignee_id: '', points: 5, recurrence: 'once', due_date: '', icon: 'CheckSquare',
+  title: '', description: '', assignee_id: '', points: 5, recurrence: 'once', due_date: '', icon: 'CheckSquare', rotation: [],
 });
 
 export default function Chores() {
@@ -70,6 +71,7 @@ export default function Chores() {
       recurrence: c.recurrence || 'once',
       due_date: c.due_date || '',
       icon: c.icon || 'CheckSquare',
+      rotation: (() => { try { return JSON.parse(c.rotation || '[]'); } catch { return []; } })(),
     });
     setModalOpen(true);
   };
@@ -99,6 +101,7 @@ export default function Chores() {
         recurrence: form.recurrence,
         due_date: form.due_date || null,
         icon: form.icon || 'CheckSquare',
+        rotation: form.recurrence !== 'once' && form.rotation.length > 1 ? JSON.stringify(form.rotation) : '',
       };
       if (form.id) await api.updateChore(form.id, body);
       else await api.createChore(body);
@@ -162,6 +165,9 @@ export default function Chores() {
                           {c.due_date && <span className={overdue ? 'text-red-500 font-medium' : 'text-gray-500'}>{dueLabel(c.due_date)}</span>}
                           {c.recurrence && c.recurrence !== 'once' && (
                             <span className="badge badge-blue inline-flex items-center gap-1"><Repeat size={11} />{c.recurrence}</span>
+                          )}
+                          {c.rotation && c.rotation !== '[]' && (
+                            <span className="badge badge-purple inline-flex items-center gap-1"><RotateCcw size={11} />rotating</span>
                           )}
                         </div>
                       </div>
@@ -243,6 +249,23 @@ export default function Chores() {
         <Field label="Due date" hint="Optional">
           <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
         </Field>
+        {form.recurrence !== 'once' && (
+          <Field label="Rotate between" hint="Pick 2+ members and the assignee auto-rotates each time it's done.">
+            <div className="flex flex-wrap gap-2 mt-1">
+              {memberList.map((mem) => {
+                const on = form.rotation.includes(mem.id);
+                return (
+                  <button key={mem.id} type="button"
+                    onClick={() => setForm((f) => ({ ...f, rotation: on ? f.rotation.filter((x) => x !== mem.id) : [...f.rotation, mem.id] }))}
+                    className={`flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-sm transition-all ${on ? 'border-transparent text-white' : 'border-gray-200 text-gray-600'}`}
+                    style={on ? { backgroundColor: mem.avatar_color } : {}}>
+                    <Avatar user={mem} size={20} /> {mem.display_name.split(' ')[0]}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
         <Field label="Icon" hint="Lucide icon name e.g. Trash2">
           <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="CheckSquare" />
         </Field>
