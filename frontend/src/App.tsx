@@ -13,6 +13,7 @@ const Chores    = lazy(() => import('./pages/Chores'));
 const Lists     = lazy(() => import('./pages/Lists'));
 const Meals     = lazy(() => import('./pages/Meals'));
 const Goals     = lazy(() => import('./pages/Goals'));
+const Health    = lazy(() => import('./pages/Health'));
 const Rewards   = lazy(() => import('./pages/Rewards'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const Notes     = lazy(() => import('./pages/Notes'));
@@ -67,6 +68,7 @@ export default function App() {
                 <Route path="/lists" element={<Lists />} />
                 <Route path="/meals" element={<Meals />} />
                 <Route path="/goals" element={<Goals />} />
+                <Route path="/health" element={<Health />} />
                 <Route path="/rewards" element={<Rewards />} />
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/notes" element={<Notes />} />

@@ -6,6 +6,7 @@ import {
   Home, Wrench, Droplet, Flame, Wifi, Phone, Plug, Star, Heart, BookOpen,
   Dumbbell, Sparkles, Cake, Sun, Moon, Bike, Plane, Briefcase, GraduationCap,
   Baby, PawPrint, Hammer, Paintbrush, Leaf, Coffee, Pizza, Apple, Bus,
+  Footprints, Scale, HeartPulse, Pill,
 } from 'lucide-react';
 import type { User } from '../../types';
 import { initials } from '../../utils/format';
@@ -20,7 +21,7 @@ const ICONS: Record<string, React.ElementType> = {
   ShoppingCart, Car, Refrigerator, Zap, Wallet, Home, Wrench, Droplet, Flame,
   Wifi, Phone, Plug, Star, Heart, BookOpen, Dumbbell, Sparkles, Cake, Sun, Moon,
   Bike, Plane, Briefcase, GraduationCap, Baby, PawPrint, Hammer, Paintbrush,
-  Leaf, Coffee, Pizza, Apple, Bus,
+  Leaf, Coffee, Pizza, Apple, Bus, Footprints, Scale, HeartPulse, Pill,
 };
 
 export function Icon({ name, ...props }: { name?: string | null } & LucideProps) {
@@ -131,7 +132,7 @@ export function EmptyState({ icon: IconCmp, title, message, action }: {
   );
 }
 
-export function Avatar({ user, size = 36, ring }: { user?: Partial<User> | null; size?: number; ring?: boolean }) {
+export function Avatar({ user, size = 36, ring }: { user?: { display_name?: string; avatar_color?: string } | null; size?: number; ring?: boolean }) {
   const color = user?.avatar_color || '#94a3b8';
   return (
     <div

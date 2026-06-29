@@ -3,6 +3,7 @@ import type {
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
   Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
   RemindersResponse, Prefs, SavedTheme,
+  HealthMember, HealthLog, HealthGoal, HealthSummary, HealthChallenge,
 } from '../types';
 
 const BASE = '/api';
@@ -78,6 +79,18 @@ export const api = {
   setFinancePin: (pin: string | null) => post<{ finance_locked: boolean }>('/members/household/finance-pin', { pin }),
   unlockFinance: (pin: string) => post<{ ok: boolean }>('/members/household/finance-unlock', { pin }),
   ssoHandoff: () => post<{ token: string; hartcare_url: string }>('/sso/handoff'),
+
+  // ── Health & wellness ──
+  healthMembers: () => get<HealthMember[]>('/health/members'),
+  setHealthShare: (level: string, member_id?: string) => put<{ ok: boolean; health_share: string }>('/health/share', { level, member_id }),
+  healthLogs: (params: { member_id?: string; type?: string; days?: number }) => get<HealthLog[]>('/health/logs', params),
+  createHealthLog: (b: Partial<HealthLog> & { member_id?: string }) => post<HealthLog>('/health/logs', b),
+  deleteHealthLog: (id: string) => del(`/health/logs/${id}`),
+  healthGoals: (member_id?: string) => get<HealthGoal[]>('/health/goals', { member_id }),
+  createHealthGoal: (b: Partial<HealthGoal> & { member_id?: string }) => post<HealthGoal>('/health/goals', b),
+  deleteHealthGoal: (id: string) => del(`/health/goals/${id}`),
+  healthSummary: (member_id?: string) => get<HealthSummary>('/health/summary', { member_id }),
+  healthChallenge: (type: string, period: string) => get<HealthChallenge>('/health/challenge', { type, period }),
   getPrefs: () => get<Prefs>('/members/me/prefs'),
   savePrefs: (prefs: Prefs) => put<Prefs>('/members/me/prefs', prefs),
   themes: () => get<SavedTheme[]>('/themes'),

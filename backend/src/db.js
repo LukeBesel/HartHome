@@ -428,6 +428,36 @@ if (!docCols.includes('file_name')) db.exec('ALTER TABLE documents ADD COLUMN fi
 const choreCols = db.prepare('PRAGMA table_info(chores)').all().map(r => r.name);
 if (!choreCols.includes('rotation')) db.exec("ALTER TABLE chores ADD COLUMN rotation TEXT DEFAULT ''");
 
+// Health privacy: 'private' (only the member), 'parents', or 'household'.
+if (!userCols.includes('health_share')) db.exec("ALTER TABLE users ADD COLUMN health_share TEXT DEFAULT 'private'");
+
+// ─── Health & wellness (privacy-sensitive, per-member) ────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS health_logs (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    value REAL,
+    text TEXT DEFAULT '',
+    unit TEXT DEFAULT '',
+    logged_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_health_logs_member ON health_logs(member_id, type, logged_at);
+
+  CREATE TABLE IF NOT EXISTS health_goals (
+    id TEXT PRIMARY KEY,
+    household_id TEXT NOT NULL,
+    member_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    target REAL DEFAULT 0,
+    unit TEXT DEFAULT '',
+    period TEXT DEFAULT 'day',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r => r.name);
 if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
 if (!householdCols.includes('hartcare_url')) db.exec("ALTER TABLE households ADD COLUMN hartcare_url TEXT DEFAULT ''");

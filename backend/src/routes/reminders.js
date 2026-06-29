@@ -9,6 +9,7 @@ const router = express.Router();
 // optional browser notifications.
 router.get('/', (req, res) => {
   const hid = req.householdId;
+  const today = new Date().toISOString().slice(0, 10);
   const items = [];
 
   // Bills — overdue or due within 3 days.
@@ -71,6 +72,24 @@ router.get('/', (req, res) => {
         subtitle: days === 0 ? 'Today! 🎉' : `In ${days} day${days === 1 ? '' : 's'}`,
         severity: days === 0 ? 'today' : 'soon', link: '/members', date: u.birthday });
     }
+  }
+
+  // Health nudges for the current member (private to them).
+  const myGoals = db.prepare(`SELECT * FROM health_goals WHERE member_id = ?`).all(req.user.id);
+  for (const g of myGoals) {
+    if (g.type === 'water' && g.period === 'day') {
+      const got = db.prepare(`SELECT COALESCE(SUM(value),0) v FROM health_logs WHERE member_id=? AND type='water' AND date(logged_at)=date('now')`).get(req.user.id).v;
+      if (got < g.target) items.push({ id: 'h-water', type: 'health', icon: 'Droplet', title: 'Drink water', subtitle: `${got}/${g.target} glasses today`, severity: 'today', link: '/health', date: today });
+    }
+    if (g.type === 'steps' && g.period === 'day') {
+      const got = db.prepare(`SELECT COALESCE(MAX(value),0) v FROM health_logs WHERE member_id=? AND type='steps' AND date(logged_at)=date('now')`).get(req.user.id).v;
+      if (got < g.target) items.push({ id: 'h-steps', type: 'health', icon: 'Footprints', title: 'Move more', subtitle: `${Math.round(got).toLocaleString()}/${g.target.toLocaleString()} steps`, severity: 'soon', link: '/health', date: today });
+    }
+  }
+  const hasWeightGoal = myGoals.some(g => g.type === 'weight');
+  if (hasWeightGoal) {
+    const recent = db.prepare(`SELECT 1 FROM health_logs WHERE member_id=? AND type='weight' AND logged_at>=datetime('now','-7 days') LIMIT 1`).get(req.user.id);
+    if (!recent) items.push({ id: 'h-weight', type: 'health', icon: 'Scale', title: 'Log your weight', subtitle: 'No entry this week', severity: 'soon', link: '/health', date: today });
   }
 
   const order = { overdue: 0, today: 1, soon: 2 };
