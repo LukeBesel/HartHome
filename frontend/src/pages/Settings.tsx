@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { toast } from '../components/shared/Toast';
 import { Link } from 'react-router-dom';
 import {
-  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock, HeartPulse,
+  Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock, HeartPulse, Sparkles,
 } from 'lucide-react';
 import { openHartCare } from '../api/hartcare';
+import UpgradeModal from '../components/shared/UpgradeModal';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
 import {
@@ -30,6 +31,16 @@ export default function Settings() {
 
   const { data: household, loading, refresh: refreshHousehold } = useAsync(() => api.household(), []);
   const { data: devices, refresh: refreshDevices } = useAsync(() => api.devices(), []);
+
+  // Plan & billing (demo mode until Stripe keys exist server-side).
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const plan = user?.household?.plan === 'plus' ? 'plus' : 'free';
+  const downgrade = async () => {
+    if (!window.confirm('Move back to the Free plan? HartCare signed-in launch and the live dashboard tile will turn off.')) return;
+    await api.downgradePlan();
+    await Promise.all([refreshHousehold(), refreshAuth()]);
+    toast('Moved to the Free plan.');
+  };
 
   // HartCare connection (sister wellness app).
   const [hcUrl, setHcUrl] = useState('');
@@ -290,6 +301,20 @@ export default function Settings() {
         </div>
       </section>
 
+      {/* Plan & billing */}
+      <section className="card p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, var(--accent), var(--secondary))' }}><Sparkles size={18} /></span>
+          <div>
+            <h2 className="font-bold text-gray-900">Plan & billing</h2>
+            <p className="text-sm text-gray-500">Your household is on <span className={`badge ${plan === 'plus' ? 'badge-amber' : 'badge-gray'}`}>{plan === 'plus' ? 'Hart+' : 'Free'}</span>{plan === 'plus' ? ' — HartCare fully connected.' : ' — upgrade to fully connect HartCare.'}</p>
+          </div>
+        </div>
+        {isParent && (plan === 'plus'
+          ? <button className="btn-secondary" onClick={downgrade}>Manage plan</button>
+          : <button className="btn-primary" onClick={() => setUpgradeOpen(true)}><Sparkles size={15} /> Upgrade to Hart+</button>)}
+      </section>
+
       {/* Connected apps — HartCare */}
       <section className="card p-5 sm:p-6 space-y-4">
         <div className="flex items-center gap-3">
@@ -461,6 +486,7 @@ export default function Settings() {
         </Field>
         <p className="text-xs text-gray-400">A pairing code is generated automatically once the display is added.</p>
       </Modal>
+      {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} onUpgraded={() => { refreshHousehold(); }} />}
     </div>
   );
 }

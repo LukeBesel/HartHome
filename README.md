@@ -33,8 +33,13 @@ deep midnight UI with an indigo→pink glow.
 | 📺 **Display mode** | A full-screen, auto-refreshing kiosk board for a wall tablet or TV |
 | 📝 **Notes & Bulletin** | Sticky notes + a family message board |
 
-Plus: dark mode, 7 accent themes, points & allowance tracking, birthday
+Plus: dark mode, full theme studio, points & allowance tracking, birthday
 reminders, and a household-isolated multi-tenant backend.
+
+**Plans:** everything above is **free**. **Hart+** ($4.99/mo, demo-mode billing
+until Stripe keys are configured) adds the full **HartCare** integration —
+one-tap signed-in launch, live wellness on the dashboard, and the two-way
+family/calendar bridge. Free households get a HartCare preview + guest access.
 
 ## 🧱 Tech Stack
 

@@ -34,7 +34,8 @@ function seedHousehold(db, opts = {}) {
   } = opts;
 
   const hid = uuid();
-  db.prepare('INSERT INTO households (id, name, address, invite_code) VALUES (?,?,?,?)')
+  // Demo homes get Hart+ so visitors experience the full product.
+  db.prepare("INSERT INTO households (id, name, address, invite_code, plan) VALUES (?,?,?,?,'plus')")
     .run(hid, name, address, Math.random().toString(36).slice(2, 8).toUpperCase());
 
   // ── Members ──

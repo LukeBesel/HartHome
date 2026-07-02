@@ -4,13 +4,16 @@ import { api } from './client';
 // by minting a one-time SSO hand-off token and handing it to HartCare's /sso
 // entry point. HartCare exchanges it via HartHome's /api/sso/verify.
 export async function openHartCare(baseUrl?: string): Promise<boolean> {
+  const plain = (u?: string) => { const url = (u || '').trim().replace(/\/$/, ''); if (url) window.open(url, '_blank', 'noopener'); return !!url; };
   try {
     const { token, hartcare_url } = await api.ssoHandoff();
     const url = (baseUrl || hartcare_url || '').trim().replace(/\/$/, '');
     if (!url) return false;
     window.open(`${url}/sso?token=${encodeURIComponent(token)}`, '_blank', 'noopener');
     return true;
-  } catch {
+  } catch (e: any) {
+    // Free plan: SSO is a Hart+ feature — open HartCare plainly instead.
+    if (e?.data?.code === 'UPGRADE_REQUIRED') return plain(baseUrl);
     return false;
   }
 }

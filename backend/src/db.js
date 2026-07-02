@@ -493,6 +493,7 @@ const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r =>
 if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
 if (!householdCols.includes('hartcare_url')) db.exec("ALTER TABLE households ADD COLUMN hartcare_url TEXT DEFAULT ''");
 if (!householdCols.includes('ics_token')) db.exec('ALTER TABLE households ADD COLUMN ics_token TEXT');
+if (!householdCols.includes('plan')) db.exec("ALTER TABLE households ADD COLUMN plan TEXT DEFAULT 'free'");
 
 // One-time SSO hand-off tokens for opening sister Hart apps (e.g. HartCare)
 // already signed-in with the same household.
