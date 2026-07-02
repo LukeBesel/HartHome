@@ -19,9 +19,17 @@ export default function Photos() {
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) { toast.error('Please choose an image under 4 MB.'); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error('Please choose an image under 8 MB.'); return; }
     const reader = new FileReader();
-    reader.onload = () => setUrl(String(reader.result)); // data: URL
+    reader.onload = async () => {
+      // Store the file on the server (persistent volume) — keeps the DB small.
+      try {
+        const up = await api.upload(file.name, String(reader.result));
+        setUrl(up.url);
+      } catch {
+        setUrl(String(reader.result)); // fall back to inline data URL
+      }
+    };
     reader.readAsDataURL(file);
   };
 

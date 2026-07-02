@@ -247,6 +247,47 @@ router.post('/logout', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Password reset ───────────────────────────────────────────────────────────
+// POST /forgot — always answers ok (no account enumeration). Creates a 1-hour
+// single-use token; emailed when SMTP is configured, otherwise the link is
+// written to the server logs for self-hosted admins.
+router.post('/forgot', (req, res) => {
+  const email = String(req.body.email || '').toLowerCase().trim();
+  res.json({ ok: true }); // answer immediately, identically, every time
+  if (!email) return;
+  const user = db.prepare('SELECT id, display_name FROM users WHERE email = ? AND is_active = 1').get(email);
+  if (!user) return;
+  const token = generateToken();
+  db.prepare(`INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?, ?, ?, datetime('now', '+1 hour'))`)
+    .run(uuid(), user.id, token);
+  const base = require('../config').config.appUrl || `http://localhost:${require('../config').config.port}`;
+  const link = `${base}/reset-password?token=${token}`;
+  require('../mailer').sendMail({
+    to: email,
+    subject: 'Reset your HartHome password',
+    text: `Hi ${user.display_name},\n\nSomeone asked to reset the password for this HartHome account. If that was you, open this link within 1 hour:\n\n${link}\n\nIf it wasn't you, ignore this message — nothing changes.`,
+  });
+});
+
+// POST /reset — exchange a valid token for a new password. Revokes every
+// existing session for the account.
+router.post('/reset', (req, res) => {
+  const { token, password } = req.body;
+  if (!password || String(password).length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  }
+  const row = token && db.prepare(
+    `SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > datetime('now')`
+  ).get(token);
+  if (!row) return res.status(400).json({ error: 'That reset link is invalid or has expired. Request a new one.', code: 'BAD_RESET_TOKEN' });
+  db.transaction(() => {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), row.user_id);
+    db.prepare('UPDATE password_resets SET used = 1 WHERE id = ?').run(row.id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id); // sign out everywhere
+  })();
+  res.json({ ok: true });
+});
+
 // ─── Change password ──────────────────────────────────────────────────────────
 router.post('/change-password', requireAuth, (req, res) => {
   const { currentPassword, newPassword } = req.body;

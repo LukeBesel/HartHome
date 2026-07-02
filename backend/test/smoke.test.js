@@ -400,6 +400,88 @@ test('demo sandbox spins up a fresh, fully-populated, isolated household', async
   } finally { server.close(); }
 });
 
+
+test('password reset: forgot issues a token, reset changes password and revokes sessions', async () => {
+  const server = await listen();
+  try {
+    const db = require('../src/db');
+    const email = `rst${Date.now()}@x.com`;
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Reset Home', displayName: 'R', email, password: 'password123' }),
+    });
+    // Ask for a reset (always ok, even for unknown emails).
+    const unknown = await api(server, '/api/auth/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'nobody@x.com' }) });
+    assert.equal(unknown.status, 200);
+    await api(server, '/api/auth/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+    await new Promise(r => setTimeout(r, 50)); // token insert happens after the response
+    const row = db.prepare(`SELECT pr.token FROM password_resets pr JOIN users u ON u.id = pr.user_id WHERE u.email = ? ORDER BY pr.created_at DESC`).get(email);
+    assert.ok(row?.token, 'reset token created');
+
+    const reset = await api(server, '/api/auth/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: row.token, password: 'newpassword1' }) });
+    assert.equal(reset.status, 200);
+    // Old session revoked; old password dead; new password works.
+    const old = await api(server, '/api/auth/me', { headers: { Authorization: `Bearer ${s.body.token}` } });
+    assert.equal(old.status, 401);
+    const bad = await api(server, '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'password123' }) });
+    assert.equal(bad.status, 401);
+    const good = await api(server, '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'newpassword1' }) });
+    assert.equal(good.status, 200);
+    // Token is single-use.
+    const again = await api(server, '/api/auth/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: row.token, password: 'anotherpass1' }) });
+    assert.equal(again.status, 400);
+  } finally { server.close(); }
+});
+
+test('outbound iCal feed serves events with RRULE and rejects bad tokens', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Ical Home', displayName: 'I', email: `ic${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}`, 'Content-Type': 'application/json' };
+    await api(server, '/api/events', { method: 'POST', headers: auth, body: JSON.stringify({ title: 'Weekly swim', start_at: new Date().toISOString(), recurrence: 'weekly', location: 'Pool' }) });
+    const feed = await api(server, '/api/ical/feed', { headers: auth });
+    assert.ok(feed.body.path.startsWith('/api/ical/'));
+
+    const { port } = server.address();
+    const ics = await fetch(`http://127.0.0.1:${port}${feed.body.path}`);
+    assert.equal(ics.status, 200);
+    assert.match(ics.headers.get('content-type'), /text\/calendar/);
+    const text = await ics.text();
+    assert.ok(text.includes('BEGIN:VCALENDAR'));
+    assert.ok(text.includes('SUMMARY:Weekly swim'));
+    assert.ok(text.includes('RRULE:FREQ=WEEKLY'));
+    assert.ok(text.includes('LOCATION:Pool'));
+
+    const bad = await fetch(`http://127.0.0.1:${port}/api/ical/not-a-token.ics`);
+    assert.equal(bad.status, 404);
+  } finally { server.close(); }
+});
+
+test('uploads store files on disk and serve them back', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Up Home', displayName: 'U', email: `up${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}`, 'Content-Type': 'application/json' };
+    const png1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const up = await api(server, '/api/upload', { method: 'POST', headers: auth, body: JSON.stringify({ name: 'dot.png', data: png1x1 }) });
+    assert.equal(up.status, 201);
+    assert.ok(up.body.url.startsWith('/uploads/'));
+
+    const { port } = server.address();
+    const file = await fetch(`http://127.0.0.1:${port}${up.body.url}`);
+    assert.equal(file.status, 200);
+
+    const bad = await api(server, '/api/upload', { method: 'POST', headers: auth, body: JSON.stringify({ name: 'x', data: 'not-a-data-url' }) });
+    assert.equal(bad.status, 400);
+  } finally { server.close(); }
+});
+
 test('demo household is seeded and tenant-isolated', async () => {
   const server = await listen();
   try {

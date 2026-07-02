@@ -35,6 +35,18 @@ const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     get configured() { return !!(this.clientId && this.clientSecret); },
   },
+
+  // Optional SMTP for password-reset emails. Without it, reset links are
+  // written to the server logs (fine for self-hosted families).
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 587,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || 'HartHome <no-reply@harthome.local>',
+    secure: process.env.SMTP_SECURE === 'true',
+    get configured() { return !!(this.host && this.user && this.pass); },
+  },
 };
 
 function validate() {

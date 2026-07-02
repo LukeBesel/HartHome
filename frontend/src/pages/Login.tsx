@@ -104,6 +104,10 @@ export default function Login() {
             <input className="login-input" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />
             <input className="login-input" type="password" placeholder="Password" value={form.password} onChange={set('password')} required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
 
+            {mode === 'login' && (
+              <div className="text-right -mt-1"><Link to="/forgot-password" className="text-xs text-gray-500 hover:text-gray-300">Forgot password?</Link></div>
+            )}
+            {params.get('reset') === '1' && !error && <p className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">Password updated — sign in with your new password.</p>}
             {error && <p className="text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{error}</p>}
 
             <button type="submit" disabled={busy} className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-white px-4 py-3 rounded-xl transition-all hover:opacity-90 disabled:opacity-50 glow" style={{ background: GRADIENT }}>

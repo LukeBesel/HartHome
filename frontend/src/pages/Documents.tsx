@@ -38,7 +38,15 @@ export default function Documents() {
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) { toast.error('Please choose a file under 8 MB.'); return; }
     const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, file_data: String(reader.result), file_name: file.name }));
+    reader.onload = async () => {
+      // Store on the server (persistent volume); fall back to inline data URL.
+      try {
+        const up = await api.upload(file.name, String(reader.result));
+        setForm((f) => ({ ...f, file_data: up.url, file_name: file.name }));
+      } catch {
+        setForm((f) => ({ ...f, file_data: String(reader.result), file_name: file.name }));
+      }
+    };
     reader.readAsDataURL(file);
   };
 

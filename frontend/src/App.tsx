@@ -32,6 +32,8 @@ const HartCareHub = lazy(() => import('./pages/HartCareHub'));
 const Display    = lazy(() => import('./pages/Display'));
 const Pricing   = lazy(() => import('./pages/Pricing'));
 const Legal     = lazy(() => import('./pages/Legal'));
+const ForgotPassword = lazy(() => import('./pages/ResetFlow').then(m => ({ default: m.ForgotPassword })));
+const ResetPassword  = lazy(() => import('./pages/ResetFlow').then(m => ({ default: m.ResetPassword })));
 
 function Spinner() {
   return (
@@ -61,6 +63,8 @@ export default function App() {
               <Route path="/terms" element={<Legal kind="terms" />} />
               <Route path="/privacy" element={<Legal kind="privacy" />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/display" element={<Protected><Display /></Protected>} />
 
               <Route element={<Protected><Layout /></Protected>}>

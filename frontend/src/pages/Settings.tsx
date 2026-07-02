@@ -41,6 +41,20 @@ export default function Settings() {
     setHcSaved(true); setTimeout(() => setHcSaved(false), 1500);
   };
 
+  // Outbound calendar feed (subscribe from Google/Apple/Outlook).
+  const [icalPath, setIcalPath] = useState('');
+  const [icalCopied, setIcalCopied] = useState(false);
+  useEffect(() => { api.icalFeed().then(r => setIcalPath(r.path)).catch(() => {}); }, []);
+  const icalUrl = icalPath ? `${window.location.origin}${icalPath}` : '';
+  const copyIcal = async () => {
+    if (!icalUrl) return;
+    try { await navigator.clipboard.writeText(icalUrl); setIcalCopied(true); setTimeout(() => setIcalCopied(false), 1500); } catch { /* ignore */ }
+  };
+  const regenIcal = async () => {
+    const r = await api.regenerateIcalFeed().catch(() => null);
+    if (r) { setIcalPath(r.path); toast('New calendar link created — old link no longer works.'); }
+  };
+
   // Financial passcode (locks Bills & Budget for kids).
   const [finPin, setFinPin] = useState('');
   const [finBusy, setFinBusy] = useState(false);
@@ -299,6 +313,20 @@ export default function Settings() {
         {household?.hartcare_url && (
           <button className="btn-secondary" onClick={() => openHartCare(household.hartcare_url)}><ExternalLink size={15} /> Open HartCare</button>
         )}
+      </section>
+
+      {/* Share your calendar (outbound iCal) */}
+      <section className="card p-5 sm:p-6 space-y-4">
+        <div>
+          <h2 className="font-bold text-gray-900">Share your calendar</h2>
+          <p className="text-sm text-gray-500">Subscribe to HartHome from Google Calendar, Apple Calendar, or Outlook ("Add calendar → From URL"). Your family events — including repeats — show up there automatically.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input value={icalUrl} readOnly className="font-mono text-xs" />
+          <button className="btn-secondary flex-shrink-0" onClick={copyIcal} aria-label="Copy calendar URL">{icalCopied ? <Check size={16} /> : <Copy size={16} />}</button>
+          {isParent && <button className="btn-ghost flex-shrink-0" onClick={regenIcal} title="Generate a new link (invalidates the old one)">New link</button>}
+        </div>
+        <p className="text-[11px] text-gray-400">Anyone with this link can read your family calendar — treat it like a password.</p>
       </section>
 
       {/* Family finances lock */}

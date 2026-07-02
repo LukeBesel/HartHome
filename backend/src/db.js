@@ -392,6 +392,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_household ON activity(household_id, created_at);
 `);
 
+// ─── Password reset tokens ────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS password_resets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    used INTEGER DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 // ─── Saved/shareable household themes ─────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS household_themes (
@@ -480,6 +492,7 @@ db.exec(`
 const householdCols = db.prepare('PRAGMA table_info(households)').all().map(r => r.name);
 if (!householdCols.includes('finance_pin')) db.exec('ALTER TABLE households ADD COLUMN finance_pin TEXT');
 if (!householdCols.includes('hartcare_url')) db.exec("ALTER TABLE households ADD COLUMN hartcare_url TEXT DEFAULT ''");
+if (!householdCols.includes('ics_token')) db.exec('ALTER TABLE households ADD COLUMN ics_token TEXT');
 
 // One-time SSO hand-off tokens for opening sister Hart apps (e.g. HartCare)
 // already signed-in with the same household.
