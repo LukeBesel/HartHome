@@ -8,6 +8,7 @@ const router = express.Router();
 // Milestones live under a goal; filtered via ?goal_id=.
 router.use('/milestones', crudRouter({
   table: 'goal_milestones',
+  required: ['goal_id', 'title'],
   fields: ['goal_id', 'title', 'done'],
   filters: ['goal_id'],
   orderBy: 'created_at ASC',
@@ -29,6 +30,7 @@ router.post('/:id/progress', (req, res) => {
 
 router.use(crudRouter({
   table: 'goals',
+  required: ['title'],
   fields: ['title', 'description', 'category', 'target', 'current', 'unit', 'member_id', 'due_date', 'status'],
   filters: ['status', 'category', 'member_id'],
   orderBy: `status ASC, due_date IS NULL, due_date ASC`,

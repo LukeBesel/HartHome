@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { toast } from '../components/shared/Toast';
 import { FileText, Plus, Pencil, Trash2, AlertTriangle, Hash, Paperclip, Download, X } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
@@ -35,7 +36,7 @@ export default function Documents() {
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { alert('Please choose a file under 8 MB.'); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error('Please choose a file under 8 MB.'); return; }
     const reader = new FileReader();
     reader.onload = () => setForm((f) => ({ ...f, file_data: String(reader.result), file_name: file.name }));
     reader.readAsDataURL(file);

@@ -56,18 +56,7 @@ export default function Health() {
   const active: HealthMember | undefined = members?.find(m => m.id === (memberId || me?.id)) || me;
   const canEdit = summary?.member.can_edit ?? active?.can_edit ?? false;
 
-  if (loading && !summary) return <div className="p-6"><Spinner /></div>;
-
-  const goalFor = (t: string) => summary?.goals.find(g => g.type === t);
-  const todayVal = (t: string): number => {
-    if (!summary) return 0;
-    if (t === 'water') return summary.today.water || 0;
-    if (t === 'steps') return summary.today.steps || 0;
-    if (t === 'sleep') return summary.today.sleep || 0;
-    if (t === 'workout') return summary.today.workout || 0;
-    return 0;
-  };
-
+  // NOTE: all hooks must run before any early return (React hooks rule).
   // 7-day bar data for steps & water.
   const weekData = useMemo(() => {
     const days: { d: string; label: string; steps: number; water: number }[] = [];
@@ -80,6 +69,18 @@ export default function Health() {
     }
     return days;
   }, [summary]);
+
+  if (loading && !summary) return <div className="p-6"><Spinner /></div>;
+
+  const goalFor = (t: string) => summary?.goals.find(g => g.type === t);
+  const todayVal = (t: string): number => {
+    if (!summary) return 0;
+    if (t === 'water') return summary.today.water || 0;
+    if (t === 'steps') return summary.today.steps || 0;
+    if (t === 'sleep') return summary.today.sleep || 0;
+    if (t === 'workout') return summary.today.workout || 0;
+    return 0;
+  };
   const weightData = (summary?.trends.weight || []).map(w => ({ d: w.d.slice(5), v: w.v }));
 
   return (

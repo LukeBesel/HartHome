@@ -45,6 +45,7 @@ router.post('/grocery', (req, res) => {
 
 router.use('/recipes', crudRouter({
   table: 'recipes',
+  required: ['name'],
   fields: ['name', 'description', 'ingredients', 'instructions', 'prep_minutes', 'servings', 'tags'],
   orderBy: 'name ASC',
   label: 'recipe',
@@ -52,6 +53,7 @@ router.use('/recipes', crudRouter({
 
 router.use(crudRouter({
   table: 'meals',
+  required: ['title', 'date'],
   fields: ['date', 'meal_type', 'title', 'notes', 'recipe_id'],
   filters: ['date', 'meal_type'],
   orderBy: 'date ASC, meal_type ASC',

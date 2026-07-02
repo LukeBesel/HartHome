@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { toast } from '../components/shared/Toast';
 import { UtensilsCrossed, ChevronLeft, ChevronRight, Plus, Trash2, Pencil, ShoppingCart, Clock, Users } from 'lucide-react';
 import { api } from '../api/client';
 import { useAsync } from '../hooks/useCollection';
@@ -91,7 +92,7 @@ export default function Meals() {
 
   const generateGrocery = async () => {
     const res = await api.mealsToGrocery(weekStartISO, weekEndISO);
-    alert(`Added ${res.added} items to your grocery list`);
+    toast(`Added ${res.added} items to your grocery list`);
   };
 
   const openCreateMeal = (date?: string, type?: Meal['meal_type']) => { setMealForm(blankMeal(date, type)); setMealModal(true); };

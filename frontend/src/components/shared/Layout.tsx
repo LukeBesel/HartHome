@@ -11,6 +11,7 @@ import { Avatar } from './ui';
 import Tour, { startTour } from './Tour';
 import ProfileSwitch from './ProfileSwitch';
 import AlertsBell from './AlertsBell';
+import { ToastHost } from './Toast';
 
 function useIsDesktop() {
   const [d, setD] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
@@ -41,7 +42,11 @@ export default function Layout() {
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
-  const canShow = (item: NavItem) => (!item.parentOnly || isParent) && !hidden.has(item.to);
+  // Locked finances: children don't see the money pages at all.
+  const financeHidden = user?.role === 'child' && !!user?.household?.finance_locked;
+  const MONEY_ROUTES = new Set(['/bills', '/budget', '/utilities']);
+  const canShow = (item: NavItem) =>
+    (!item.parentOnly || isParent) && !hidden.has(item.to) && !(financeHidden && MONEY_ROUTES.has(item.to));
   const sidebarW = eff ? 'w-16' : (isDesktop ? 'w-60' : 'w-72');
 
   const renderItem = (item: NavItem) => {
@@ -155,6 +160,7 @@ export default function Layout() {
         <main className="flex-1 overflow-auto"><Outlet /></main>
       </div>
       <AlertsBell />
+      <ToastHost />
       <Tour />
       {switching && <ProfileSwitch onClose={() => setSwitching(false)} />}
     </div>

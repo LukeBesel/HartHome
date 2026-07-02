@@ -5,6 +5,7 @@ const { crudRouter } = require('../crud');
 // file storage is required on the server.
 module.exports = crudRouter({
   table: 'photos',
+  required: ['url'],
   fields: ['url', 'caption', 'sort'],
   orderBy: 'sort ASC, created_at DESC',
   label: 'photo',

@@ -7,6 +7,7 @@ const router = express.Router();
 // List items, filtered via ?list_id=.
 router.use('/items', crudRouter({
   table: 'list_items',
+  required: ['list_id', 'name'],
   fields: ['list_id', 'name', 'qty', 'category', 'note', 'assignee_id', 'done', 'sort'],
   filters: ['list_id', 'done'],
   orderBy: 'done ASC, sort ASC, created_at ASC',
@@ -21,6 +22,7 @@ router.delete('/:listId/clear-done', (req, res) => {
 
 router.use(crudRouter({
   table: 'lists',
+  required: ['name'],
   fields: ['name', 'type', 'icon', 'color'],
   filters: ['type'],
   orderBy: 'created_at ASC',

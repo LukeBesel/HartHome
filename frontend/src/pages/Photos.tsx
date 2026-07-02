@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { toast } from '../components/shared/Toast';
 import { Image as ImageIcon, Plus, Trash2, Upload, Link as LinkIcon, MonitorPlay } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -18,7 +19,7 @@ export default function Photos() {
   const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) { alert('Please choose an image under 4 MB.'); return; }
+    if (file.size > 4 * 1024 * 1024) { toast.error('Please choose an image under 4 MB.'); return; }
     const reader = new FileReader();
     reader.onload = () => setUrl(String(reader.result)); // data: URL
     reader.readAsDataURL(file);

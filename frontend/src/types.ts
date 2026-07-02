@@ -167,6 +167,7 @@ export interface DashboardData {
   announcements: Announcement[];
   notes: Note[];
   birthdays: User[];
+  financeHidden?: boolean;
   finance: { netWorth: number; monthSpend: number; monthIncome: number; billsTotal: number };
   counts: { chores: number; bills: number; events: number; grocery: number };
 }

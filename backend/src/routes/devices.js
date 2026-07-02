@@ -12,6 +12,7 @@ function pairingCode() {
 
 router.use(crudRouter({
   table: 'devices',
+  required: ['name'],
   fields: ['name', 'type', 'widgets', 'rotate_seconds'],
   filters: ['type'],
   orderBy: 'created_at ASC',

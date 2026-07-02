@@ -133,6 +133,93 @@ test('per-user preferences round-trip and persist', async () => {
   } finally { server.close(); }
 });
 
+test('children are blocked from money APIs server-side when finances are locked', async () => {
+  const server = await listen();
+  try {
+    const owner = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Lock Home', displayName: 'P', email: `lk${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const pAuth = { Authorization: `Bearer ${owner.body.token}` };
+    const kidEmail = `kid${Date.now()}@x.com`;
+    await api(server, '/api/members', {
+      method: 'POST', headers: { ...pAuth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: 'Kid', role: 'child', email: kidEmail, password: 'password123' }),
+    });
+    const kid = await api(server, '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: kidEmail, password: 'password123' }),
+    });
+    const kAuth = { Authorization: `Bearer ${kid.body.token}` };
+
+    // Before the lock: kid can read bills.
+    const before = await api(server, '/api/bills', { headers: kAuth });
+    assert.equal(before.status, 200);
+
+    // Parent locks finances.
+    await api(server, '/api/members/household/finance-pin', {
+      method: 'POST', headers: { ...pAuth, 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: '4321' }),
+    });
+
+    // Kid is now blocked from every money API…
+    for (const p of ['/api/bills', '/api/finance/summary', '/api/utilities']) {
+      const r = await api(server, p, { headers: kAuth });
+      assert.equal(r.status, 403, `${p} should be 403 for a locked child`);
+      assert.equal(r.body.code, 'FINANCE_LOCKED');
+    }
+    // …the dashboard hides money…
+    const dash = await api(server, '/api/dashboard', { headers: kAuth });
+    assert.equal(dash.body.financeHidden, true);
+    assert.equal(dash.body.finance.netWorth, 0);
+    assert.deepEqual(dash.body.billsDue, []);
+    // …but parents still pass.
+    const pd = await api(server, '/api/bills', { headers: pAuth });
+    assert.equal(pd.status, 200);
+  } finally { server.close(); }
+});
+
+test('create endpoints reject missing required fields with a friendly 400', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Val Home', displayName: 'V', email: `v${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}`, 'Content-Type': 'application/json' };
+    const cases = [
+      ['/api/chores', {}],
+      ['/api/events', { title: 'No start' }],
+      ['/api/bills', {}],
+      ['/api/lists/items', { name: 'orphan item' }], // missing list_id
+    ];
+    for (const [p, body] of cases) {
+      const r = await api(server, p, { method: 'POST', headers: auth, body: JSON.stringify(body) });
+      assert.equal(r.status, 400, `${p} should 400`);
+      assert.equal(r.body.code, 'MISSING_FIELD');
+    }
+    // Invalid enum value maps to a clean 400 (not a 500).
+    const bad = await api(server, '/api/bills', { method: 'POST', headers: auth, body: JSON.stringify({ name: 'X', frequency: 'fortnightly' }) });
+    assert.equal(bad.status, 400);
+  } finally { server.close(); }
+});
+
+test('sweeps reclaim stale demo households', async () => {
+  const server = await listen();
+  try {
+    const db = require('../src/db');
+    const { runSweeps } = require('../src/sweeps');
+    // Create a demo sandbox, then age it a week.
+    const demo = await api(server, '/api/auth/demo', { method: 'POST' });
+    const me = await api(server, '/api/auth/me', { headers: { Authorization: `Bearer ${demo.body.token}` } });
+    const hid = me.body.household_id;
+    db.prepare(`UPDATE households SET created_at = datetime('now', '-8 days') WHERE id = ?`).run(hid);
+    runSweeps();
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM households WHERE id = ?').get(hid).c, 0, 'household removed');
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM users WHERE household_id = ?').get(hid).c, 0, 'users cascaded');
+    assert.equal(db.prepare('SELECT COUNT(*) c FROM chores WHERE household_id = ?').get(hid).c, 0, 'domain rows removed');
+  } finally { server.close(); }
+});
+
 test('financial passcode locks and never leaks the hash', async () => {
   const server = await listen();
   try {

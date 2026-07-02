@@ -52,6 +52,7 @@ router.get('/payments/all', (req, res) => {
 
 router.use(crudRouter({
   table: 'bills',
+  required: ['name'],
   fields: ['name', 'amount', 'category', 'frequency', 'next_due', 'autopay', 'account', 'member_id', 'status', 'notes'],
   filters: ['status', 'category'],
   orderBy: `next_due IS NULL, next_due ASC`,

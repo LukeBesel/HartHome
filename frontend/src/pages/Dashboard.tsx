@@ -18,11 +18,14 @@ import type { DashboardWidgetPref } from '../types';
 
 // Each home-screen widget: an id, a label for the customizer, and the grid span
 // it occupies on a 6-column desktop grid. Order + visibility are user prefs.
+// Ordered so the default layout packs the 6-column grid with no gaps:
+// stats(6) · schedule(4)+bulletin(2) · chores(4)+points(2) ·
+// goals(3)+maintenance(3) · lists(2)+photos(2)+activity(2) · hartcare(2).
 const WIDGETS: { id: string; label: string; span: string }[] = [
   { id: 'stats', label: 'Quick stats', span: 'lg:col-span-6' },
   { id: 'schedule', label: "Today's schedule", span: 'lg:col-span-4' },
-  { id: 'chores', label: 'Chores', span: 'lg:col-span-4' },
   { id: 'bulletin', label: 'Family bulletin', span: 'lg:col-span-2' },
+  { id: 'chores', label: 'Chores', span: 'lg:col-span-4' },
   { id: 'points', label: 'Points race', span: 'lg:col-span-2' },
   { id: 'goals', label: 'Goals', span: 'lg:col-span-3' },
   { id: 'maintenance', label: 'Maintenance', span: 'lg:col-span-3' },
@@ -93,11 +96,11 @@ export default function Dashboard() {
   const widgetNode = (id: string) => {
     switch (id) {
       case 'stats': return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className={`grid grid-cols-2 ${data.financeHidden ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-3 sm:gap-4`}>
           <Link to="/calendar"><StatCard icon={CalendarDays} label="Today" value={data.counts.events} sub="events" tone="indigo" /></Link>
           <Link to="/chores"><StatCard icon={CheckSquare} label="Chores due" value={data.counts.chores} sub="to do" tone="teal" /></Link>
-          <Link to="/bills"><StatCard icon={Receipt} label="Bills due" value={money(data.finance.billsTotal)} sub={`${data.counts.bills} upcoming`} tone="rose" /></Link>
-          <Link to="/budget"><StatCard icon={Wallet} label="Net worth" value={money(data.finance.netWorth, { cents: false })} sub={`${money(data.finance.monthSpend, { cents: false })} spent`} tone="emerald" /></Link>
+          {!data.financeHidden && <Link to="/bills"><StatCard icon={Receipt} label="Bills due" value={money(data.finance.billsTotal)} sub={`${data.counts.bills} upcoming`} tone="rose" /></Link>}
+          {!data.financeHidden && <Link to="/budget"><StatCard icon={Wallet} label="Net worth" value={money(data.finance.netWorth, { cents: false })} sub={`${money(data.finance.monthSpend, { cents: false })} spent`} tone="emerald" /></Link>}
         </div>
       );
       case 'schedule': {

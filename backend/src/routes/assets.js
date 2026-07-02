@@ -45,6 +45,7 @@ router.post('/maintenance/:id/complete', (req, res) => {
 
 router.use('/maintenance', crudRouter({
   table: 'maintenance',
+  required: ['asset_id', 'title'],
   fields: ['asset_id', 'title', 'type', 'due_date', 'due_mileage', 'completed_at', 'cost', 'provider', 'recurrence_months', 'recurrence_miles', 'status', 'notes'],
   filters: ['asset_id', 'status', 'type'],
   orderBy: `status='done', due_date IS NULL, due_date ASC`,
@@ -53,6 +54,7 @@ router.use('/maintenance', crudRouter({
 
 router.use(crudRouter({
   table: 'assets',
+  required: ['name'],
   fields: ['name', 'type', 'make', 'model', 'year', 'identifier', 'purchase_date', 'purchase_price', 'current_value', 'mileage', 'warranty_expires', 'location', 'notes', 'icon'],
   filters: ['type'],
   orderBy: 'name ASC',
