@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { config, validate, banner } = require('./config');
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, financeGuard } = require('./middleware/auth');
 const db = require('./db');
 const { bus } = require('./bus');
 
@@ -35,6 +35,7 @@ const photosRouter       = require('./routes/photos');
 const remindersRouter    = require('./routes/reminders');
 const healthRouter       = require('./routes/health');
 const { router: calendarFeedsRouter, syncAll: syncAllFeeds } = require('./routes/calendar-feeds');
+const { runSweeps } = require('./sweeps');
 const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
 const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
@@ -139,9 +140,9 @@ app.use('/api/goals',         goalsRouter);
 app.use('/api/rewards',       rewardsRouter);
 app.use('/api/lists',         listsRouter);
 app.use('/api/meals',         mealsRouter);
-app.use('/api/bills',         billsRouter);
-app.use('/api/finance',       financeRouter);
-app.use('/api/utilities',     utilitiesRouter);
+app.use('/api/bills',         financeGuard, billsRouter);
+app.use('/api/finance',       financeGuard, financeRouter);
+app.use('/api/utilities',     financeGuard, utilitiesRouter);
 app.use('/api/assets',        assetsRouter);
 app.use('/api/contacts',      contactsRouter);
 app.use('/api/notes',         notesRouter);
@@ -177,6 +178,14 @@ if (fs.existsSync(frontendDist)) {
 app.use((err, req, res, _next) => {
   console.error('[error]', req.method, req.originalUrl, '-', err.message);
   if (res.headersSent) return;
+  // Data-shape problems (bad enum value, missing column value, dup) are the
+  // caller's fault — return a clean 400, never a scary 500.
+  if (String(err.code || '').startsWith('SQLITE_CONSTRAINT')) {
+    return res.status(400).json({ error: 'That change isn\'t valid — please check the values and try again.', code: 'INVALID_DATA' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That upload is too large.', code: 'TOO_LARGE' });
+  }
   res.status(err.status || 500).json({
     error: config.isProd ? 'Internal server error' : err.message,
     code: err.code || 'INTERNAL_ERROR',
@@ -191,6 +200,10 @@ if (require.main === module) {
   // Refresh subscribed external calendars periodically (and shortly after boot).
   setTimeout(() => syncAllFeeds().catch(() => {}), 15_000).unref();
   setInterval(() => syncAllFeeds().catch(() => {}), 6 * 60 * 60 * 1000).unref();
+
+  // Housekeeping: expired sessions, spent SSO tokens, stale demo sandboxes.
+  setTimeout(runSweeps, 30_000).unref();
+  setInterval(runSweeps, 12 * 60 * 60 * 1000).unref();
 
   process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]', reason));
   process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));

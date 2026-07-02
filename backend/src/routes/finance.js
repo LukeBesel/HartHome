@@ -48,6 +48,7 @@ router.get('/summary', (req, res) => {
 
 router.use('/accounts', crudRouter({
   table: 'accounts',
+  required: ['name'],
   fields: ['name', 'type', 'balance', 'institution'],
   filters: ['type'],
   orderBy: 'type, name',
@@ -64,6 +65,7 @@ router.use('/transactions', crudRouter({
 
 router.use('/budgets', crudRouter({
   table: 'budgets',
+  required: ['category'],
   fields: ['category', 'monthly_limit', 'icon'],
   orderBy: 'category',
   label: 'budget',

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { toast } from '../components/shared/Toast';
 import {
   CalendarDays, ChevronLeft, ChevronRight, Plus, Trash2, Upload, Clock, MapPin, Rss, RefreshCw,
 } from 'lucide-react';
@@ -88,6 +89,7 @@ const emptyForm = (date?: Date) => ({
   id: '', title: '', start_at: toLocalInput(date ? new Date(new Date(date).setHours(9, 0, 0, 0)).toISOString() : null),
   end_at: '', all_day: false, location: '', member_id: '', color: COLORS[0], category: 'general', recurrence: 'none',
   _colorTouched: false,
+  _feed: false,
 });
 type Form = ReturnType<typeof emptyForm>;
 
@@ -151,6 +153,7 @@ export default function Calendar() {
       id: o.id, title: o.title, start_at: toLocalInput(o.start_at), end_at: o.end_at ? toLocalInput(o.end_at) : '',
       all_day: !!o.all_day, location: o.location || '', member_id: o.member_id || '', color: o.color,
       category: o.category || 'general', recurrence: o.recurrence || 'none', _colorTouched: true,
+      _feed: !!o.feed_id,
     });
     setOpen(true);
   };
@@ -183,7 +186,7 @@ export default function Calendar() {
     const file = e.target.files?.[0]; if (!file) return;
     const text = await file.text();
     const parsed = parseICS(text).filter(ev => ev.title && ev.start_at);
-    if (!parsed.length) { alert('No events found in that .ics file.'); return; }
+    if (!parsed.length) { toast.error('No events found in that .ics file.'); return; }
     let n = 0;
     for (const ev of parsed) {
       await api.createEvent({ ...ev, color: COLORS[n % COLORS.length], category: 'general', recurrence: 'none' }).catch(() => {});
@@ -191,7 +194,7 @@ export default function Calendar() {
     }
     if (fileRef.current) fileRef.current.value = '';
     await refresh();
-    alert(`Imported ${n} event${n === 1 ? '' : 's'}.`);
+    toast(`Imported ${n} event${n === 1 ? '' : 's'}.`);
   };
 
   const shift = (dir: number) => {
@@ -246,7 +249,7 @@ export default function Calendar() {
                   <div className={`text-lg font-bold ${isToday ? 'text-white w-7 h-7 rounded-full flex items-center justify-center' : 'text-gray-800'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
                 </button>
                 <div className="space-y-1 flex-1">
-                  {list.map(o => <EventPill key={o._key} o={o} onClick={() => openEdit(o)} onDragStart={() => setDrag({ id: o.id, day: ymd(o._start) })} />)}
+                  {list.map(o => <EventPill key={o._key} o={o} onClick={() => openEdit(o)} onDragStart={o.feed_id ? undefined : () => setDrag({ id: o.id, day: ymd(o._start) })} />)}
                 </div>
               </div>
             );
@@ -268,7 +271,7 @@ export default function Calendar() {
                   className={`text-left border-b border-r border-gray-100 min-h-[92px] p-1.5 align-top hover:bg-gray-50/60 transition-colors ${inMonth ? '' : 'bg-gray-50/40'}`}>
                   <div className={`text-xs font-semibold mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full ${isToday ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'}`} style={isToday ? { background: 'var(--accent)' } : {}}>{d.getDate()}</div>
                   <div className="space-y-0.5">
-                    {list.slice(0, 3).map(o => <EventPill key={o._key} o={o} onClick={(e) => { e.stopPropagation(); openEdit(o); }} onDragStart={() => setDrag({ id: o.id, day: ymd(o._start) })} />)}
+                    {list.slice(0, 3).map(o => <EventPill key={o._key} o={o} onClick={(e) => { e.stopPropagation(); openEdit(o); }} onDragStart={o.feed_id ? undefined : () => setDrag({ id: o.id, day: ymd(o._start) })} />)}
                     {list.length > 3 && <div className="text-[10px] text-gray-400 pl-1">+{list.length - 3} more</div>}
                   </div>
                 </button>
@@ -284,6 +287,7 @@ export default function Calendar() {
           <button className="btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
           <button className="btn-primary" onClick={save} disabled={saving || !form.title.trim()}>{saving ? 'Saving…' : 'Save'}</button>
         </>}>
+        {form._feed && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">Synced from an external calendar — edits here are replaced on the next sync. Change it in the source calendar instead.</p>}
         <Field label="Title"><Input value={form.title} placeholder="Soccer practice" onChange={e => setForm({ ...form, title: e.target.value })} /></Field>
         <label className="flex items-center gap-2 text-sm text-gray-600">
           <input type="checkbox" checked={form.all_day} onChange={e => setForm({ ...form, all_day: e.target.checked })} /> All day

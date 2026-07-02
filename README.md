@@ -24,7 +24,11 @@ deep midnight UI with an indigo→pink glow.
 | ⚡ **Utilities** | Providers, account numbers, and meter readings for electric/water/gas/internet |
 | 🚗 **Assets & Maintenance** | Vehicles, appliances & home systems with service schedules by **date and mileage** (oil changes, registration, warranties) |
 | ☎️ **Contacts** | Emergency, medical, school & service contacts with tap-to-call/email |
-| 📄 **Documents** | An important-documents vault with renewal reminders |
+| 📄 **Documents** | An important-documents vault with renewal reminders and file attachments |
+| ❤️ **Health & Wellness** | Privacy-first per-member tracking (weight, water, steps, sleep, mood, workouts, meds) with trends, goals & opt-in family challenges |
+| 🔒 **Finance lock** | A parent passcode that locks Bills, Budget & Utilities so kids can't see family finances (enforced server-side) |
+| 🎨 **Personalization** | Full theme studio (any accent color, sidebars, density, wallpapers, shared household themes) + customizable dashboard widgets |
+| 🔗 **Calendar sync** | Subscribe to Google / Outlook / Apple calendars by iCal URL, auto-refreshed & color-coded |
 | 👨‍👩‍👧 **Family** | Manage members & roles; kids get password-free profiles for shared screens |
 | 📺 **Display mode** | A full-screen, auto-refreshing kiosk board for a wall tablet or TV |
 | 📝 **Notes & Bulletin** | Sticky notes + a family message board |
@@ -74,7 +78,9 @@ demo home** on the login screen. You can also create a fresh household via
 `owner` › `parent` › `member` › `child`. Parents & owners manage members,
 approve rewards, and edit household settings. Children can have **profile-only**
 accounts (no email/password) and sign in by tapping their avatar on a shared
-screen.
+screen. When the **finance passcode** is set, children are blocked from money
+pages *and* money APIs; health data is **private per member** unless they
+choose to share it.
 
 ## 📺 Putting it on a screen
 
@@ -104,6 +110,15 @@ HartHome/
         ├── api/client.ts   # Typed API client
         └── utils/, hooks/
 ```
+
+## 🧪 Testing
+
+```bash
+npm test   # backend suite: auth, tenant isolation, finance lock, child blocking,
+           # validation, chores/rewards/points, SSO, calendar feeds, sweeps
+```
+
+Before a release, run through [`QA_CHECKLIST.md`](./QA_CHECKLIST.md).
 
 ## ☁️ Deploy on Railway (just like HartMonitor)
 

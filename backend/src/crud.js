@@ -30,10 +30,20 @@ function crudRouter(opts) {
     orderBy = 'created_at DESC',
     label = 'item',
     activity = false,
+    required = [],          // fields that must be non-empty on create
     hooks = {},
   } = opts;
 
   const router = express.Router();
+
+  // Friendly 400 instead of a SQLite NOT NULL 500 when required fields are missing.
+  function missingRequired(body) {
+    for (const f of required) {
+      const v = body[f];
+      if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) return f;
+    }
+    return null;
+  }
 
   // GET / — list, with optional column filters from the query string.
   router.get('/', (req, res) => {
@@ -62,6 +72,10 @@ function crudRouter(opts) {
 
   // POST / — create.
   router.post('/', (req, res) => {
+    const missing = missingRequired(req.body || {});
+    if (missing) {
+      return res.status(400).json({ error: `Please provide a ${missing.replace(/_/g, ' ')} for this ${label}.`, code: 'MISSING_FIELD', field: missing });
+    }
     const id = uuid();
     const cols = ['id', 'household_id'];
     const vals = [id, req.householdId];
@@ -83,6 +97,12 @@ function crudRouter(opts) {
 
   // PUT /:id — update (partial; only provided writable fields change).
   router.put('/:id', (req, res) => {
+    for (const f of required) {
+      const v = (req.body || {})[f];
+      if (v !== undefined && (v === null || (typeof v === 'string' && !v.trim()))) {
+        return res.status(400).json({ error: `A ${f.replace(/_/g, ' ')} is required for this ${label}.`, code: 'MISSING_FIELD', field: f });
+      }
+    }
     const existing = db
       .prepare(`SELECT * FROM ${table} WHERE id = ? AND household_id = ?`)
       .get(req.params.id, req.householdId);

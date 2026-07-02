@@ -12,8 +12,12 @@ router.get('/', (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const items = [];
 
+  // Locked finances: children don't get bill reminders (mirrors financeGuard).
+  const financeHidden = req.user.role === 'child' &&
+    !!db.prepare('SELECT finance_pin FROM households WHERE id = ?').get(hid)?.finance_pin;
+
   // Bills — overdue or due within 3 days.
-  for (const b of db.prepare(
+  if (!financeHidden) for (const b of db.prepare(
     `SELECT id, name, amount, next_due FROM bills
      WHERE household_id = ? AND status != 'paid' AND next_due IS NOT NULL
        AND date(next_due) <= date('now','+3 days') ORDER BY next_due`

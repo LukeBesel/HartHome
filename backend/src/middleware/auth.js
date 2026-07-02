@@ -70,4 +70,17 @@ function requireRole(minRole) {
   };
 }
 
-module.exports = { requireAuth, requireRole, hashPassword, verifyPassword, generateToken, ROLE_LEVELS };
+// ─── Finance guard ────────────────────────────────────────────────────────────
+// When the household has a finance passcode set, children are blocked from the
+// money APIs entirely (server-side — the client passcode gate handles the UX
+// for everyone else). Parents/members pass through.
+function financeGuard(req, res, next) {
+  if (req.user?.role !== 'child') return next();
+  const h = db.prepare('SELECT finance_pin FROM households WHERE id = ?').get(req.householdId);
+  if (h?.finance_pin) {
+    return res.status(403).json({ error: 'Family finances are locked. Ask a parent.', code: 'FINANCE_LOCKED' });
+  }
+  next();
+}
+
+module.exports = { requireAuth, requireRole, financeGuard, hashPassword, verifyPassword, generateToken, ROLE_LEVELS };

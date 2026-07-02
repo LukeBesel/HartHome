@@ -7,6 +7,10 @@ const router = express.Router();
 // the wall-display kiosk, so a screen needs a single request to render.
 router.get('/', (req, res) => {
   const hid = req.householdId;
+  // When the household's finance passcode is set, children get no money data —
+  // matching the server-side financeGuard on the money APIs.
+  const financeHidden = req.user.role === 'child' &&
+    !!db.prepare('SELECT finance_pin FROM households WHERE id = ?').get(hid)?.finance_pin;
   const today = new Date().toISOString().slice(0, 10);
   const weekEnd = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
 
@@ -94,7 +98,7 @@ router.get('/', (req, res) => {
     todayEvents,
     upcomingEvents,
     choresDue,
-    billsDue,
+    billsDue: financeHidden ? [] : billsDue,
     goals,
     maintenanceDue,
     groceryLists,
@@ -102,10 +106,13 @@ router.get('/', (req, res) => {
     announcements,
     notes,
     birthdays,
-    finance: { netWorth, monthSpend, monthIncome, billsTotal },
+    financeHidden,
+    finance: financeHidden
+      ? { netWorth: 0, monthSpend: 0, monthIncome: 0, billsTotal: 0 }
+      : { netWorth, monthSpend, monthIncome, billsTotal },
     counts: {
       chores: choresDue.length,
-      bills: billsDue.length,
+      bills: financeHidden ? 0 : billsDue.length,
       events: todayEvents.length,
       grocery: groceryLists.reduce((s, l) => s + l.open_items, 0),
     },

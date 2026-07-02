@@ -55,6 +55,7 @@ router.put('/redemptions/:id', requireRole('parent'), (req, res) => {
 
 router.use(crudRouter({
   table: 'rewards',
+  required: ['title'],
   fields: ['title', 'description', 'cost', 'icon', 'stock', 'active'],
   filters: ['active'],
   orderBy: 'cost ASC',

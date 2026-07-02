@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Settings2, CalendarDays, CheckSquare, Megaphone, UtensilsCrossed, Image as ImageIcon, Trophy } from 'lucide-react';
+import { X, Check, Settings2, CalendarDays, CheckSquare, Megaphone, UtensilsCrossed, Image as ImageIcon, Trophy } from 'lucide-react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAsync } from '../hooks/useCollection';
 import { useLiveRefresh } from '../api/live';
 import { Avatar, Spinner } from '../components/shared/ui';
+import { ToastHost, toast } from '../components/shared/Toast';
 import { fmtTime, dueLabel, memberById, todayISO } from '../utils/format';
 import type { DisplayPrefs } from '../types';
 
@@ -51,6 +52,19 @@ export default function Display() {
   const { data: photos } = useAsync(() => api.photos(), []);
   const [now, setNow] = useState(new Date());
   const [bgIdx, setBgIdx] = useState(0);
+  // Tap-to-complete from the wall display, with a brief check-off animation.
+  const [justDone, setJustDone] = useState<Set<string>>(new Set());
+  const completeFromDisplay = async (c: { id: string; title: string; points: number }) => {
+    setJustDone(s => new Set(s).add(c.id));
+    try {
+      const r = await api.completeChore(c.id);
+      toast(`${c.title} done${r?.member ? ` — +${c.points} pts for ${String(r.member.display_name).split(' ')[0]}` : ''}! 🎉`);
+      setTimeout(() => refresh().catch(() => {}), 900); // let the animation play
+    } catch {
+      setJustDone(s => { const n = new Set(s); n.delete(c.id); return n; });
+      toast.error('Could not complete that chore.');
+    }
+  };
   const [configOpen, setConfigOpen] = useState(false);
   const weather = useWeather(cfg.showWeather);
   useLiveRefresh(refresh);
@@ -133,14 +147,20 @@ export default function Display() {
           )}
           {on('chores') && (
             <Panel title="Chores" icon={CheckSquare}>
-              {data.choresDue.length === 0 ? <Empty>All done! ✨</Empty> : data.choresDue.slice(0, 7).map(c => (
-                <div key={c.id} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
-                  <span className="w-5 h-5 rounded-md border-2 border-white/30 flex-shrink-0" />
-                  <div className="flex-1 min-w-0"><div className="text-lg truncate">{c.title}</div>{c.due_date && <div className="text-sm text-white/60">{dueLabel(c.due_date)}</div>}</div>
-                  {c.assignee_id && <Avatar user={memberById(m, c.assignee_id)} size={30} />}
-                  <span className="text-emerald-300 font-semibold">+{c.points}</span>
-                </div>
-              ))}
+              {data.choresDue.length === 0 ? <Empty>All done! ✨</Empty> : data.choresDue.slice(0, 7).map(c => {
+                const done = justDone.has(c.id);
+                return (
+                  <button key={c.id} onClick={() => completeFromDisplay(c)} disabled={done}
+                    className={`w-full text-left flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0 transition-all duration-500 rounded-lg px-1 -mx-1 hover:bg-white/5 active:scale-[0.99] ${done ? 'opacity-40' : ''}`}>
+                    <span className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${done ? 'bg-emerald-500 border-emerald-500 scale-110' : 'border-white/30'}`}>
+                      {done && <Check size={15} className="text-white" />}
+                    </span>
+                    <div className="flex-1 min-w-0"><div className={`text-lg truncate ${done ? 'line-through' : ''}`}>{c.title}</div>{c.due_date && <div className="text-sm text-white/60">{dueLabel(c.due_date)}</div>}</div>
+                    {c.assignee_id && <Avatar user={memberById(m, c.assignee_id)} size={30} />}
+                    <span className="text-emerald-300 font-semibold">+{c.points}</span>
+                  </button>
+                );
+              })}
             </Panel>
           )}
           {on('bulletin') && (
@@ -198,6 +218,7 @@ export default function Display() {
           </div>
         </div>
       )}
+      <ToastHost />
     </div>
   );
 }

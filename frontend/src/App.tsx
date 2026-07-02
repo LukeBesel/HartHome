@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/shared/Layout';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 import FinanceGate from './components/shared/FinanceGate';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -52,6 +53,7 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
+          <ErrorBoundary>
           <Suspense fallback={<Spinner />}>
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -76,7 +78,7 @@ export default function App() {
                 <Route path="/members" element={<Members />} />
                 <Route path="/bills" element={<FinanceGate><Bills /></FinanceGate>} />
                 <Route path="/budget" element={<FinanceGate><Budget /></FinanceGate>} />
-                <Route path="/utilities" element={<Utilities />} />
+                <Route path="/utilities" element={<FinanceGate><Utilities /></FinanceGate>} />
                 <Route path="/assets" element={<Assets />} />
                 <Route path="/contacts" element={<Contacts />} />
                 <Route path="/documents" element={<Documents />} />
@@ -87,6 +89,7 @@ export default function App() {
               </Route>
             </Routes>
           </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </ThemeProvider>
     </AuthProvider>

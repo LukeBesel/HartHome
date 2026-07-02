@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { toast } from '../components/shared/Toast';
 import { Link } from 'react-router-dom';
 import {
   Settings as SettingsIcon, Moon, Sun, Copy, Check, Trash2, Plus, Monitor, ExternalLink, Palette, Eye, EyeOff, Lock, HeartPulse,
@@ -50,7 +51,7 @@ export default function Settings() {
       setFinPin('');
       sessionStorage.setItem('hh_finance_ok', '1'); // the parent who set it is unlocked now
       await Promise.all([refreshHousehold(), refreshAuth()]);
-    } catch (e: any) { alert(e.message || 'Could not update passcode'); }
+    } catch (e: any) { toast.error(e.message || 'Could not update passcode'); }
     finally { setFinBusy(false); }
   };
 

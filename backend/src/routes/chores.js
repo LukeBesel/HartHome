@@ -79,6 +79,7 @@ router.post('/:id/reopen', (req, res) => {
 // Standard CRUD for everything else.
 router.use(crudRouter({
   table: 'chores',
+  required: ['title'],
   fields: ['title', 'description', 'assignee_id', 'points', 'recurrence', 'day_of_week', 'due_date', 'status', 'icon', 'rotation'],
   filters: ['assignee_id', 'status'],
   orderBy: `status ASC, due_date IS NULL, due_date ASC, created_at DESC`,

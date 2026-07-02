@@ -39,7 +39,7 @@ export default function AlertsBell() {
   const overdue = data?.overdue ?? 0;
 
   return (
-    <div className="fixed top-3 right-3 z-30">
+    <div className="fixed bottom-4 right-4 z-30">
       <button onClick={() => setOpen(o => !o)} aria-label="Alerts"
         className="relative w-10 h-10 rounded-full bg-white shadow-md border border-gray-100 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors">
         {count > 0 ? <BellRing size={18} /> : <Bell size={18} />}
@@ -53,7 +53,7 @@ export default function AlertsBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-[-1]" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn">
+          <div className="absolute right-0 bottom-full mb-2 w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h3 className="font-bold text-gray-900 text-sm">Reminders</h3>
               <button onClick={() => setOpen(false)} className="btn-ghost p-1"><X size={16} /></button>
