@@ -23,7 +23,7 @@ const WEATHER: Record<number, { t: string; e: string }> = {
 
 const DEFAULT_DISPLAY: DisplayPrefs = {
   widgets: ['photos', 'today', 'chores', 'bulletin', 'points'],
-  background: 'aurora', clock24: false, showWeather: true, photoInterval: 8,
+  background: 'aurora', clock24: false, showWeather: true, photoInterval: 8, idleMinutes: 5,
 };
 const ALL_WIDGETS = [
   { id: 'photos', label: 'Photo slideshow' }, { id: 'today', label: "Today's schedule" },
@@ -66,6 +66,25 @@ export default function Display() {
     }
   };
   const [configOpen, setConfigOpen] = useState(false);
+  // Idle screensaver: after N quiet minutes, fade into a photo slideshow with a
+  // big clock; any touch/movement wakes the board. 0 disables it.
+  const [idle, setIdle] = useState(false);
+  const lastActive = useRef(Date.now());
+  useEffect(() => {
+    const wake = () => { lastActive.current = Date.now(); setIdle(false); };
+    const evs = ['pointerdown', 'pointermove', 'keydown', 'touchstart'] as const;
+    evs.forEach(e => window.addEventListener(e, wake, { passive: true }));
+    const t = setInterval(() => {
+      if (cfg.idleMinutes > 0 && Date.now() - lastActive.current > cfg.idleMinutes * 60_000) setIdle(true);
+    }, 10_000);
+    return () => { evs.forEach(e => window.removeEventListener(e, wake)); clearInterval(t); };
+  }, [cfg.idleMinutes]);
+  const [saverIdx, setSaverIdx] = useState(0);
+  useEffect(() => {
+    if (!idle) return;
+    const t = setInterval(() => setSaverIdx(i => i + 1), (cfg.photoInterval || 8) * 1000);
+    return () => clearInterval(t);
+  }, [idle, cfg.photoInterval]);
   const weather = useWeather(cfg.showWeather);
   useLiveRefresh(refresh);
 
@@ -214,8 +233,25 @@ export default function Display() {
             <label className="flex items-center justify-between"><span className="text-sm text-gray-700">Show weather</span><input type="checkbox" checked={cfg.showWeather} onChange={e => setCfg({ showWeather: e.target.checked })} /></label>
             <label className="flex items-center justify-between gap-3"><span className="text-sm text-gray-700">Photo interval (s)</span>
               <input type="number" min={3} max={60} value={cfg.photoInterval} onChange={e => setCfg({ photoInterval: Math.max(3, Number(e.target.value) || 8) })} className="input-field w-20" /></label>
+            <label className="flex items-center justify-between gap-3"><span className="text-sm text-gray-700">Screensaver after (min, 0 = off)</span>
+              <input type="number" min={0} max={120} value={cfg.idleMinutes} onChange={e => setCfg({ idleMinutes: Math.max(0, Number(e.target.value) || 0) })} className="input-field w-20" /></label>
             <p className="text-xs text-gray-400">Saved to your profile and synced across screens.</p>
           </div>
+        </div>
+      )}
+      {/* Idle screensaver — ambient photos + clock; wakes on any touch. */}
+      {idle && (
+        <div className="fixed inset-0 z-30 bg-black animate-fadeIn" onPointerDown={() => setIdle(false)}>
+          {pics.length > 0 && pics.map((p, i) => (
+            <img key={p.id} src={p.url} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms]"
+              style={{ opacity: i === saverIdx % pics.length ? 1 : 0 }} />
+          ))}
+          <div className="absolute inset-0 bg-black/35" />
+          <div className="absolute bottom-10 left-10">
+            <div className="text-7xl font-extrabold tracking-tight tabular-nums drop-shadow-lg">{clock}</div>
+            <div className="text-2xl text-white/80 mt-1 drop-shadow">{now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          </div>
+          {pics.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-white/30 text-xl">Touch to wake</div>}
         </div>
       )}
       <ToastHost />

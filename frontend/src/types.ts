@@ -145,6 +145,7 @@ export interface DisplayPrefs {
   clock24: boolean;
   showWeather: boolean;
   photoInterval: number;
+  idleMinutes: number;
 }
 export interface Prefs {
   theme?: Partial<ThemePrefs>;

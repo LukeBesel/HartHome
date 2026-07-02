@@ -36,6 +36,8 @@ const remindersRouter    = require('./routes/reminders');
 const healthRouter       = require('./routes/health');
 const { router: calendarFeedsRouter, syncAll: syncAllFeeds } = require('./routes/calendar-feeds');
 const { runSweeps } = require('./sweeps');
+const { router: icalRouter, serveFeed: serveIcalFeed } = require('./routes/ical');
+const { router: uploadRouter, uploadsDir } = require('./routes/upload');
 const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
 const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
@@ -97,6 +99,8 @@ app.use(express.json({ limit: '15mb' })); // headroom for document/wallpaper upl
 app.use('/api/auth/login',  authLimiter);
 app.use('/api/auth/signup', authLimiter);
 app.use('/api/auth/demo',   authLimiter);
+app.use('/api/auth/forgot', authLimiter);
+app.use('/api/auth/reset',  authLimiter);
 app.use('/api', generalLimiter);
 
 app.use('/api/auth', authRouter);            // public
@@ -104,6 +108,9 @@ app.use('/api/auth', authRouter);            // public
 // ─── Cross-app SSO verify (public, CORS-open for sister Hart apps) ────────────
 app.options('/api/sso/verify', (_req, res) => res.set('Access-Control-Allow-Origin', '*').set('Access-Control-Allow-Methods', 'GET').end());
 app.get('/api/sso/verify', ssoVerify);
+
+// Public outbound calendar feed (token in the URL — subscribe from Google/Apple/Outlook).
+app.get('/api/ical/:token', serveIcalFeed);
 
 // Read API for connected sister apps — authenticated by an integration link
 // token (not a session), CORS-open so HartCare can call it.
@@ -155,8 +162,13 @@ app.use('/api/health',        healthRouter);
 app.use('/api/calendar-feeds', calendarFeedsRouter);
 app.use('/api/sso',           ssoRouter);
 app.use('/api/themes',        themesRouter);
+app.use('/api/ical',          icalRouter);
+app.use('/api/upload',        uploadRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' }));
+
+// Uploaded files (photos, documents) — unguessable names, cache aggressively.
+app.use('/uploads', express.static(uploadsDir, { maxAge: '30d', immutable: true }));
 
 // ─── Static frontend + SPA fallback ─────────────────────────────────────────
 const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
