@@ -339,6 +339,8 @@ test('SSO hand-off issues a one-time token that verifies identity', async () => 
       body: JSON.stringify({ householdName: 'SSO Home', displayName: 'Sam', email: `s${Date.now()}@x.com`, password: 'password123' }),
     });
     const auth = { Authorization: `Bearer ${s.body.token}` };
+    // SSO hand-off is a Hart+ feature — upgrade (demo mode) first.
+    await api(server, '/api/billing/upgrade', { method: 'POST', headers: auth });
     const handoff = await api(server, '/api/sso/handoff', { method: 'POST', headers: auth });
     assert.ok(handoff.body.token);
 
@@ -479,6 +481,48 @@ test('uploads store files on disk and serve them back', async () => {
 
     const bad = await api(server, '/api/upload', { method: 'POST', headers: auth, body: JSON.stringify({ name: 'x', data: 'not-a-data-url' }) });
     assert.equal(bad.status, 400);
+  } finally { server.close(); }
+});
+
+
+test('Hart+ plan gates HartCare SSO and upgrades in demo mode', async () => {
+  const server = await listen();
+  try {
+    const s = await api(server, '/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ householdName: 'Plan Home', displayName: 'P', email: `pl${Date.now()}@x.com`, password: 'password123' }),
+    });
+    const auth = { Authorization: `Bearer ${s.body.token}`, 'Content-Type': 'application/json' };
+
+    // Fresh households are Free; SSO hand-off (paid) is blocked with a clean code.
+    const b0 = await api(server, '/api/billing', { headers: auth });
+    assert.equal(b0.body.plan, 'free');
+    assert.ok(b0.body.plans.plus.features.length > 0);
+    const blocked = await api(server, '/api/sso/handoff', { method: 'POST', headers: auth });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.code, 'UPGRADE_REQUIRED');
+
+    // Demo upgrade applies instantly; SSO now works; plan visible on /me.
+    const up = await api(server, '/api/billing/upgrade', { method: 'POST', headers: auth });
+    assert.equal(up.body.plan, 'plus');
+    assert.equal(up.body.demo, true);
+    const handoff = await api(server, '/api/sso/handoff', { method: 'POST', headers: auth });
+    assert.equal(handoff.status, 200);
+    assert.ok(handoff.body.token);
+    const me = await api(server, '/api/auth/me', { headers: auth });
+    assert.equal(me.body.household.plan, 'plus');
+
+    // Downgrade re-locks the paid feature.
+    await api(server, '/api/billing/downgrade', { method: 'POST', headers: auth });
+    const relocked = await api(server, '/api/sso/handoff', { method: 'POST', headers: auth });
+    assert.equal(relocked.status, 403);
+
+    // Children can't change the plan.
+    const kidEmail = `pk${Date.now()}@x.com`;
+    await api(server, '/api/members', { method: 'POST', headers: auth, body: JSON.stringify({ display_name: 'Kid', role: 'child', email: kidEmail, password: 'password123' }) });
+    const kid = await api(server, '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: kidEmail, password: 'password123' }) });
+    const kidUp = await api(server, '/api/billing/upgrade', { method: 'POST', headers: { Authorization: `Bearer ${kid.body.token}` } });
+    assert.equal(kidUp.status, 403);
   } finally { server.close(); }
 });
 

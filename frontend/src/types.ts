@@ -23,7 +23,10 @@ export interface Household {
   invite_code: string;
   finance_locked?: boolean;
   hartcare_url?: string;
+  plan?: 'free' | 'plus';
 }
+export interface PlanInfo { id: string; label: string; price: number; features: string[]; }
+export interface BillingInfo { plan: 'free' | 'plus'; demo: boolean; plans: { free: PlanInfo; plus: PlanInfo }; }
 
 export interface EventItem {
   id: string; title: string; description: string; location: string;

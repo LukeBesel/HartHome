@@ -2,7 +2,7 @@ import type {
   User, Household, EventItem, Chore, Goal, Reward, Redemption, ListBoard, ListItem,
   Recipe, Meal, Bill, Account, Transaction, Budget, Utility, UtilityReading,
   Asset, Maintenance, Contact, Note, DocItem, Device, Announcement, ActivityItem, DashboardData, Photo,
-  RemindersResponse, Prefs, SavedTheme,
+  RemindersResponse, Prefs, SavedTheme, BillingInfo,
   HealthMember, HealthLog, HealthGoal, HealthSummary, HealthChallenge, CalendarFeed,
 } from '../types';
 
@@ -82,6 +82,11 @@ export const api = {
   setFinancePin: (pin: string | null) => post<{ finance_locked: boolean }>('/members/household/finance-pin', { pin }),
   unlockFinance: (pin: string) => post<{ ok: boolean }>('/members/household/finance-unlock', { pin }),
   ssoHandoff: () => post<{ token: string; hartcare_url: string }>('/sso/handoff'),
+
+  // ── Billing ──
+  billing: () => get<BillingInfo>('/billing'),
+  upgradePlan: () => post<{ plan: string; demo: boolean }>('/billing/upgrade'),
+  downgradePlan: () => post<{ plan: string; demo: boolean }>('/billing/downgrade'),
 
   // ── Health & wellness ──
   healthMembers: () => get<HealthMember[]>('/health/members'),

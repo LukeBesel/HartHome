@@ -223,7 +223,7 @@ export default function Dashboard() {
           )}
         </Section>
       );
-      case 'hartcare': return <HartCareTile url={user?.household?.hartcare_url} />;
+      case 'hartcare': return <HartCareTile url={user?.household?.hartcare_url} isPlus={user?.household?.plan === 'plus'} />;
       default: return null;
     }
   };
@@ -319,9 +319,22 @@ const Muted = ({ children }: { children: React.ReactNode }) => <p className="tex
 
 // Live HartCare tile — pulls a wellness summary if HartCare is connected and has
 // implemented the summary endpoint; otherwise degrades to a launch/connect card.
-function HartCareTile({ url }: { url?: string }) {
+function HartCareTile({ url, isPlus }: { url?: string; isPlus?: boolean }) {
   const [summary, setSummary] = useState<HartCareSummary | null>(null);
-  useEffect(() => { if (url) fetchHartCareSummary(url).then(setSummary).catch(() => {}); }, [url]);
+  useEffect(() => { if (url && isPlus) fetchHartCareSummary(url).then(setSummary).catch(() => {}); }, [url, isPlus]);
+  // Free plan: a teaser that links to the HartCare hub (with its upgrade CTA).
+  if (!isPlus) {
+    return (
+      <div className="card p-4 sm:p-5 h-full" style={{ background: 'linear-gradient(135deg, rgba(244,63,94,0.06), rgba(245,158,11,0.06))' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2"><HeartPulse size={16} className="text-rose-500" /><h2 className="font-semibold text-gray-800 text-sm">HartCare</h2></div>
+          <span className="badge badge-amber">Hart+</span>
+        </div>
+        <p className="text-sm text-gray-600">Your family's health & wellness, connected to this home — steps, sleep and reminders right here.</p>
+        <Link to="/hartcare" className="btn-primary mt-3 inline-flex">See what's included</Link>
+      </div>
+    );
+  }
   return (
     <div className="card p-4 sm:p-5 h-full" style={{ background: 'linear-gradient(135deg, rgba(244,63,94,0.06), rgba(245,158,11,0.06))' }}>
       <div className="flex items-center justify-between mb-3">

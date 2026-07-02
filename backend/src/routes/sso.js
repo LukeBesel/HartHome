@@ -12,7 +12,10 @@ const db = require('../db');
 const router = express.Router(); // mounted behind requireAuth
 
 // POST /api/sso/handoff — issue a one-time token for the current member.
-router.post('/handoff', (req, res) => {
+// Signed-in HartCare launch is a Hart+ feature; free households get a 403 the
+// client turns into an upgrade prompt (they can still open HartCare plainly).
+const { requirePlus } = require('./billing');
+router.post('/handoff', requirePlus, (req, res) => {
   const token = crypto.randomBytes(24).toString('hex');
   db.prepare(
     `INSERT INTO sso_tokens (id, token, user_id, household_id, expires_at)

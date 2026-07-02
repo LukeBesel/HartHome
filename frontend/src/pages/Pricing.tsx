@@ -6,14 +6,11 @@ const GRADIENT = 'linear-gradient(135deg, #6366f1, #ec4899)';
 
 const PLANS = [
   { name: 'Free', price: '$0', cadence: 'forever', highlight: false,
-    features: ['Up to 4 family members', 'Calendar, chores & lists', 'Goals & rewards', 'Grocery & meal planning', '1 connected display'],
+    features: ['Every core module — calendar, chores, rewards, lists, meals, money, health', 'Unlimited family members & devices', 'Wall display / kiosk mode', 'External calendar sync (iCal in & out)', 'HartCare preview (guest access)'],
     cta: 'Get started' },
-  { name: 'Home', price: '$6', cadence: 'per month', highlight: true,
-    features: ['Unlimited family members', 'Everything in Free', 'Bills, budget & utilities', 'Car & home asset maintenance', 'Documents & contacts vault', 'Unlimited displays', 'Smart reminders'],
-    cta: 'Start free trial' },
-  { name: 'Household+', price: '$10', cadence: 'per month', highlight: false,
-    features: ['Everything in Home', 'Multiple homes / properties', 'Advanced budget insights', 'Priority support', 'Data export & backups'],
-    cta: 'Start free trial' },
+  { name: 'Hart+', price: '$4.99', cadence: 'per month', highlight: true,
+    features: ['Everything in Free', 'Full HartCare integration — one family, one sign-in', 'Open HartCare signed-in with one tap', 'Live wellness (steps, sleep, reminders) on your dashboard', 'Two-way family & calendar bridge', 'Priority support'],
+    cta: 'Start with Hart+' },
 ];
 
 export default function Pricing() {
@@ -24,11 +21,11 @@ export default function Pricing() {
         <div className="absolute top-10 left-1/3 w-[30rem] h-[30rem] aurora-orb animate-aurora" style={{ background: '#6366f1' }} />
         <div className="relative max-w-3xl mx-auto text-center">
           <Reveal><h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight">Simple pricing for every home</h1></Reveal>
-          <Reveal delay={80}><p className="mt-5 text-gray-400">Start free. Upgrade when your home needs more. Cancel anytime.</p></Reveal>
+          <Reveal delay={80}><p className="mt-5 text-gray-400">Everything a household needs is free. Hart+ connects your family's health with HartCare. Cancel anytime.</p></Reveal>
         </div>
       </section>
       <section className="px-6 pb-24">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
+        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-6">
           {PLANS.map((p, i) => (
             <Reveal key={p.name} delay={i * 100}>
               <div className={`relative h-full rounded-2xl p-7 flex flex-col ${p.highlight ? 'border-2' : 'border border-white/10 bg-white/[0.03]'}`}

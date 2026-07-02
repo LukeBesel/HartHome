@@ -38,6 +38,7 @@ const { router: calendarFeedsRouter, syncAll: syncAllFeeds } = require('./routes
 const { runSweeps } = require('./sweeps');
 const { router: icalRouter, serveFeed: serveIcalFeed } = require('./routes/ical');
 const { router: uploadRouter, uploadsDir } = require('./routes/upload');
+const { router: billingRouter } = require('./routes/billing');
 const { router: ssoRouter, verify: ssoVerify, linkAuth } = require('./routes/sso');
 const integrationsRouter = require('./routes/integrations');
 const themesRouter       = require('./routes/themes');
@@ -164,6 +165,7 @@ app.use('/api/sso',           ssoRouter);
 app.use('/api/themes',        themesRouter);
 app.use('/api/ical',          icalRouter);
 app.use('/api/upload',        uploadRouter);
+app.use('/api/billing',       billingRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' }));
 
